@@ -249,7 +249,7 @@ fun VariantD(items: List<Listing>, type: PType, filter: Filter, cb: VariantCallb
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "← Nö · Favorit →   ${items.size} übrig",
+                "${items.size} übrig",
                 style = MaterialTheme.typography.labelMedium, color = Color.Gray, modifier = Modifier.weight(1f),
             )
             val top = items.first()
