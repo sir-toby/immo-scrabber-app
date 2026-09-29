@@ -20,6 +20,14 @@ _Avoid_: Suchparameter, Suche, Preferences
 Das Portal, auf dem ein Inserat veröffentlicht ist.
 _Avoid_: Provider, Portal
 
+**Anbieter**:
+Wer ein Inserat anbietet, etwa ein Makler, eine Bank oder ein Bauträger. Nicht zu verwechseln mit der Quelle, auf der das Inserat erscheint.
+_Avoid_: Provider, Verkäufer
+
+**Ausgeschlossene Anbieter**:
+Anbieter, deren Häuser und Wohnungen dem Nutzer nicht angezeigt werden. Sie werden im Suchprofil gepflegt, gelten aber für alle Haus- und Wohnungsprofile des Nutzers; auf Grundstücke wirken sie nicht.
+_Avoid_: Blacklist, Provider-Blacklist
+
 ## Bewertung
 
 **Bewertung**:
