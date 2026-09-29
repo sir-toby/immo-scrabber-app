@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val variants = listOf("A" to "Kartenstapel", "B" to "Wischliste", "C" to "Vollbild-Feed")
+private val variants = listOf("D" to "A+B kombiniert", "A" to "Kartenstapel", "B" to "Wischliste", "C" to "Vollbild-Feed")
 
 @Composable
 fun App() {
@@ -102,8 +102,8 @@ private fun ListingScreen(store: Store, type: PType, variant: Int, snackbar: Sna
 
     val cb = VariantCallbacks(
         onRate = { l, label ->
-            store.rate(l, label, moveToEnd = variant == 0)
-            if (variant == 1) scope.launch {
+            store.rate(l, label, moveToEnd = variant == 1)
+            if (variant == 0 || variant == 2) scope.launch {
                 snackbar.currentSnackbarData?.dismiss()
                 val r = snackbar.showSnackbar(
                     if (label == Label.INTERESTING) "Als Favorit markiert" else "Ins Archiv verschoben",
@@ -144,8 +144,9 @@ private fun ListingScreen(store: Store, type: PType, variant: Int, snackbar: Sna
         )
         Box(Modifier.weight(1f)) {
             when (variant) {
-                0 -> VariantA(items, type, cb)
-                1 -> VariantB(items, type, showLabel = filter == Filter.ALLE, cb)
+                0 -> VariantD(items, type, filter, cb)
+                1 -> VariantA(items, type, cb)
+                2 -> VariantB(items, type, showLabel = filter == Filter.ALLE, cb)
                 else -> VariantC(items, type, filter, cb)
             }
         }

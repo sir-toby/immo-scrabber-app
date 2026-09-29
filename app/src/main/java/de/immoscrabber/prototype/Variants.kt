@@ -2,6 +2,7 @@
 //   A  Kartenstapel   – eine Karte nach der anderen, rechts/links bewerten, hoch = später
 //   B  Wischliste     – normale Liste, Zeilen wie in Gmail wischen, Snackbar mit "Rückgängig"
 //   C  Vollbild-Feed  – vertikal blättern (ohne zu bewerten), horizontal wischen bewertet
+//   D  A+B kombiniert – "Neu" als Stapel (nur links/rechts, kleiner Überspringen-Button), andere Filter als Wischliste
 package de.immoscrabber.prototype
 
 import androidx.compose.foundation.background
@@ -35,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -215,6 +217,43 @@ private fun FullscreenCard(l: Listing, page: Int, total: Int, cb: VariantCallbac
                     color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium,
                 )
             }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- D: A+B kombiniert
+
+@Composable
+fun VariantD(items: List<Listing>, type: PType, filter: Filter, cb: VariantCallbacks) {
+    if (filter != Filter.NEU) return VariantB(items, type, showLabel = filter == Filter.ALLE, cb)
+    if (items.isEmpty()) return EmptyState(type)
+    Column(Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 80.dp)) {
+        Box(Modifier.fillMaxWidth().weight(1f)) {
+            val stack = items.take(3).reversed()
+            stack.forEachIndexed { i, l ->
+                val depth = stack.size - 1 - i
+                key(l.id) {
+                    if (depth == 0) {
+                        SwipeableCard(l, cb.onRate, onSkip = null, onTap = cb.onOpen, modifier = Modifier.fillMaxSize()) { StackCard(l, cb) }
+                    } else {
+                        Box(Modifier.fillMaxSize().graphicsLayer {
+                            val s = 1f - 0.05f * depth
+                            scaleX = s; scaleY = s; translationY = 22.dp.toPx() * depth
+                        }) { StackCard(l, cb) }
+                    }
+                }
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "← Nö · Favorit →   ${items.size} übrig",
+                style = MaterialTheme.typography.labelMedium, color = Color.Gray, modifier = Modifier.weight(1f),
+            )
+            val top = items.first()
+            TextButton(onClick = { cb.onSkip(top) }) { Text("Überspringen", style = MaterialTheme.typography.labelMedium) }
         }
     }
 }
