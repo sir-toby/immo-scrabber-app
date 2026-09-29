@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Issue tracker
 
-Issues live in GitHub Issues on `sir-toby/immo-scrabber-app`, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues on `sir-toby/immo-scrabber-app`, managed via `gh api` (REST only; GraphQL is blocked in cloud sessions). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
