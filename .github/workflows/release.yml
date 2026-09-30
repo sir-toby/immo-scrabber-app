@@ -1,0 +1,66 @@
+name: Release
+
+# Bei Tag vX.Y.Z: Tests + Lint, signierte Release-APK, GitHub Release.
+# Schlägt ein Schritt fehl, entsteht kein Release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Signierte Release-APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Liest app/build.gradle.kts: versionName/versionCode aus dem Tag (ungültiger Tag → Build bricht ab).
+      VERSION_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Tests und Lint
+        run: ./gradlew testDebugUnitTest lintDebug
+
+      - name: Signierte Release-APK bauen
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
+
+      - name: APK umbenennen
+        id: apk
+        run: |
+          version="${VERSION_TAG#v}"
+          apk="immo-finder-${version}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$apk"
+          echo "file=$apk" >> "$GITHUB_OUTPUT"
+
+      - name: GitHub Release anlegen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$VERSION_TAG" "${{ steps.apk.outputs.file }}" --generate-notes --verify-tag
+
+      - name: Lint-Report hochladen
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-*.html
+          if-no-files-found: ignore

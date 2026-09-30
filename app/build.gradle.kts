@@ -80,6 +80,13 @@ android {
         buildConfig = true
     }
 
+    // Lint bricht nur bei Errors ab, Warnungen landen im Report; keine Baseline (Entscheidung #21).
+    lint {
+        abortOnError = true
+        warningsAsErrors = false
+        htmlReport = true
+    }
+
     sourceSets {
         // Build-Logik (buildSrc) ist reines Kotlin und wird hier mitgetestet, damit
         // testDebugUnitTest sie abdeckt.
