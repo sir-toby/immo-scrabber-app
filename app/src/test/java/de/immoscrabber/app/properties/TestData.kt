@@ -8,6 +8,8 @@ import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.network.ApiError
 import de.immoscrabber.app.core.network.ApiResult
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import java.io.IOException
 
 fun inserat(
@@ -60,9 +62,13 @@ class FakePageSource {
     val requests = mutableListOf<PageCursor?>()
     var gate: CompletableDeferred<Unit>? = null
 
+    /** Antworten kommen auch nach einem Abbruch noch an (etwa schon unterwegs). */
+    var nonCancellable = false
+
     suspend fun load(cursor: PageCursor?): ApiResult<InseratPage> {
         requests += cursor
-        gate?.await()
+        val gate = gate
+        if (nonCancellable) withContext(NonCancellable) { gate?.await() } else gate?.await()
         return pages[cursor] ?: error("keine Seite für $cursor")
     }
 }

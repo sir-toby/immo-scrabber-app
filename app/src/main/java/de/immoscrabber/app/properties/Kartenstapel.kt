@@ -1,15 +1,20 @@
 package de.immoscrabber.app.properties
 
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,8 +32,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,13 +55,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import de.immoscrabber.app.R
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.Label
 import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.ui.theme.ImmoFinderTheme
-import kotlinx.coroutines.launch
+import de.immoscrabber.app.core.ui.theme.immoColors
 import kotlin.math.abs
+import kotlin.math.max
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 /** Karten, die sichtbar übereinander liegen: die oberste und dahinter angedeutet zwei weitere. */
 private const val VISIBLE_CARDS = 3
@@ -65,13 +76,20 @@ private const val SWIPE_THRESHOLD = 0.3f
 /** Maximale Neigung der Karte in Grad, wenn sie um eine Bildschirmbreite verschoben ist. */
 private const val MAX_ROTATION = 12f
 
+/** Ab dieser Geschwindigkeit fliegt die Karte auch vor der Schwelle heraus. */
+private val FLING_VELOCITY = 1_000.dp
+
+/** Neigung des Stempels in Grad. */
+private const val STAMP_ROTATION = 15f
+
 /** Höhe der Zeile „N übrig“ / „Überspringen“; die Snackbar sitzt darüber. */
 val StackFooterHeight = 48.dp
 
 /**
  * Kartenstapel für den Filter „Neu“ (Entscheidungen #3, #6): oben die erste Karte der geladenen
- * Liste, dahinter zwei weitere. Wischen rechts = interessant, links = uninteressant, ohne
- * Richtungshinweise; darunter „N übrig“ und „Überspringen“.
+ * Liste, dahinter zwei weitere. Wischen rechts = interessant, links = uninteressant; beim Ziehen
+ * zeigt ein Stempel die Richtung, sonst keine Richtungshinweise. Darunter „N übrig“ und
+ * „Überspringen“.
  *
  * Vertikal scrollbar, damit Pull-to-Refresh auch über dem Stapel greift.
  */
@@ -91,11 +109,12 @@ fun Kartenstapel(
                 Box(Modifier.fillMaxWidth().weight(1f).padding(bottom = 20.dp)) {
                     val visible = items.take(VISIBLE_CARDS)
                     // Von hinten nach vorn zeichnen; der Schlüssel hält Zustand und Animation je Karte.
-                    visible.asReversed().forEach { inserat ->
+                    for (depth in visible.indices.reversed()) {
+                        val inserat = visible[depth]
                         key(inserat.id) {
                             StackItem(
                                 inserat = inserat,
-                                depth = visible.indexOf(inserat),
+                                depth = depth,
                                 onRate = { label -> onRate(inserat, label) },
                                 onClick = { onOpen(inserat) },
                             )
@@ -121,33 +140,94 @@ fun Kartenstapel(
     }
 }
 
+/**
+ * Zustand des Wischens einer Karte. [offset] ändert sich synchron mit jedem Zug-Delta; nur das
+ * Einrasten läuft als Animation. So kann kein verspätetes Delta eine laufende Animation
+ * abbrechen und die Karte mitten im Bild stehen lassen.
+ */
+private class SwipeState {
+    var offset by mutableFloatStateOf(0f)
+
+    /** Die Karte fliegt heraus; die Bewertung ist entschieden, weitere Gesten zählen nicht. */
+    var flyingOut by mutableStateOf(false)
+
+    /** Haptisches Signal beim Überschreiten der Schwelle, einmal je Überschreiten. */
+    var armed = false
+    var settle: Job? = null
+}
+
 /** Eine Karte im Stapel; nur die oberste ([depth] 0) lässt sich wischen und antippen. */
 @Composable
 private fun StackItem(inserat: Inserat, depth: Int, onRate: (Label) -> Unit, onClick: () -> Unit) {
     // Rückt eine Karte nach vorn, wächst sie weich auf volle Größe.
     val animatedDepth by animateFloatAsState(depth.toFloat(), label = "depth")
     val isTop = depth == 0
+    // Scope der Komposition, nicht des Gesten-Modifiers: Das Einrasten läuft weiter, auch wenn
+    // der Modifier neu aufgesetzt wird, und endet erst, wenn die Karte den Stapel verlässt.
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
     val screenWidth = LocalWindowInfo.current.containerSize.width.toFloat().coerceAtLeast(1f)
     val threshold = screenWidth * SWIPE_THRESHOLD
-    val flingVelocity = with(density) { 1_000.dp.toPx() }
+    val flingVelocity = with(density) { FLING_VELOCITY.toPx() }
     val stackOffset = with(density) { 10.dp.toPx() }
-    val offset = remember { Animatable(0f) }
-    var armed by remember { mutableStateOf(false) }
+    val swipe = remember { SwipeState() }
     val currentOnRate by rememberUpdatedState(onRate)
+    val currentOnClick by rememberUpdatedState(onClick)
+    // Gesten sind auf jeder Karte aktiv und prüfen erst beim Auslösen, ob sie oben liegt: Schaltete
+    // `enabled` mitten in einer Geste um (die Karte davor fliegt gerade heraus), setzt Compose die
+    // Zeigerverarbeitung zurück, und ein Wisch käme als Tippen an.
+    val currentIsTop by rememberUpdatedState(isTop)
 
-    val dragState = rememberDraggableState { delta ->
-        scope.launch {
-            offset.snapTo(offset.value + delta)
-            // Haptisches Signal beim Überschreiten der Schwelle (Entscheidung #3).
-            val beyond = abs(offset.value) > threshold
-            if (beyond != armed) {
-                armed = beyond
-                if (beyond) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    // Nach jedem Loslassen oder Abbruch: herausfliegen und bewerten oder zurück in die Mitte.
+    fun settle(velocity: Float) {
+        if (swipe.flyingOut) return
+        swipe.settle?.cancel()
+        swipe.armed = false
+        val x = swipe.offset
+        val direction = when {
+            x > threshold || (velocity > flingVelocity && x > 0f) -> 1
+            x < -threshold || (velocity < -flingVelocity && x < 0f) -> -1
+            else -> 0
+        }
+        if (direction == 0) {
+            swipe.settle = scope.launch {
+                animate(x, 0f, velocity, spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)) { value, _ ->
+                    swipe.offset = value
+                }
+            }
+            return
+        }
+        swipe.flyingOut = true
+        val target = direction * screenWidth * 1.5f
+        // Mindestens mit Fling-Geschwindigkeit weiter; ein schneller Wisch fliegt schneller ab.
+        val speed = max(abs(velocity), flingVelocity)
+        val duration = (abs(target - x) / speed * 1000).toInt().coerceIn(120, 300)
+        swipe.settle = scope.launch {
+            try {
+                animate(x, target, velocity, tween(duration, easing = LinearEasing)) { value, _ -> swipe.offset = value }
+            } finally {
+                // Auch wenn die Karte vorher den Stapel verlässt: Die Bewertung ist entschieden.
+                currentOnRate(if (direction > 0) Label.INTERESSANT else Label.UNINTERESSANT)
             }
         }
+    }
+
+    val dragState = rememberDraggableState { delta ->
+        if (swipe.flyingOut || !currentIsTop) return@rememberDraggableState
+        swipe.offset += delta
+        // Haptisches Signal beim Überschreiten der Schwelle (Entscheidung #3).
+        val beyond = abs(swipe.offset) > threshold
+        if (beyond != swipe.armed) {
+            swipe.armed = beyond
+            if (beyond) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+
+    // Rutscht die Karte nach hinten, während sie verschoben ist (etwa weil eine zurückgeholte
+    // Karte oben landet), endet die Geste womöglich ohne Loslassen: dann zurück in die Mitte.
+    LaunchedEffect(isTop) {
+        if (!isTop && !swipe.flyingOut && swipe.offset != 0f) settle(velocity = 0f)
     }
 
     Box(
@@ -160,34 +240,56 @@ private fun StackItem(inserat: Inserat, depth: Int, onRate: (Label) -> Unit, onC
                 scaleX = scale
                 scaleY = scale
                 translationY = stackOffset * animatedDepth
-                translationX = offset.value
-                rotationZ = offset.value / screenWidth * MAX_ROTATION
+                translationX = swipe.offset
+                rotationZ = swipe.offset / screenWidth * MAX_ROTATION
             }
             .draggable(
                 state = dragState,
                 orientation = Orientation.Horizontal,
-                enabled = isTop,
-                onDragStopped = { velocity ->
-                    val x = offset.value
-                    val direction = when {
-                        x > threshold || (velocity > flingVelocity && x > 0f) -> 1
-                        x < -threshold || (velocity < -flingVelocity && x < 0f) -> -1
-                        else -> 0
-                    }
-                    armed = false
-                    if (direction == 0) {
-                        offset.animateTo(0f, spring())
-                    } else {
-                        offset.animateTo(direction * screenWidth * 1.5f, tween(durationMillis = 200))
-                        currentOnRate(if (direction > 0) Label.INTERESSANT else Label.UNINTERESSANT)
-                    }
-                },
+                // Ein neuer Griff fängt eine zurückfedernde Karte an ihrer Stelle auf.
+                onDragStarted = { if (currentIsTop && !swipe.flyingOut) swipe.settle?.cancel() },
+                // Kommt auch bei abgebrochener Geste (dann mit Geschwindigkeit 0).
+                onDragStopped = { velocity -> if (currentIsTop || swipe.offset != 0f) settle(velocity) },
             )
-            .clickable(enabled = isTop, onClick = onClick),
+            .clickable { if (currentIsTop && !swipe.flyingOut) currentOnClick() },
     ) {
         StackCard(inserat, elevated = depth < VISIBLE_CARDS - 1)
+        SwipeStamp(offset = { swipe.offset }, threshold = threshold)
     }
 }
+
+/**
+ * Stempel beim Ziehen (Entscheidung #3): rechts „INTERESSANT“ in Grün, links „VERWERFEN“ in Rot,
+ * gedreht und umrandet; die Deckkraft wächst mit der Zugstrecke bis zur Schwelle.
+ */
+@Composable
+private fun BoxScope.SwipeStamp(offset: () -> Float, threshold: Float) {
+    val x = offset()
+    if (x == 0f) return
+    val interested = x > 0f
+    val color = if (interested) MaterialTheme.immoColors.interessant else MaterialTheme.immoColors.uninteressant
+    Text(
+        text = stringResource(if (interested) R.string.stack_stamp_interested else R.string.stack_stamp_discard),
+        color = color,
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Black,
+        letterSpacing = 2.sp,
+        maxLines = 1,
+        modifier = Modifier
+            // Der Stempel steht auf der Seite, von der die Karte wegzieht.
+            .align(if (interested) Alignment.TopStart else Alignment.TopEnd)
+            .padding(horizontal = 24.dp, vertical = 64.dp)
+            .graphicsLayer {
+                alpha = (abs(offset()) / threshold).coerceIn(0f, 1f)
+                rotationZ = if (interested) -STAMP_ROTATION else STAMP_ROTATION
+            }
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f), StampShape)
+            .border(4.dp, color, StampShape)
+            .padding(horizontal = 14.dp, vertical = 4.dp),
+    )
+}
+
+private val StampShape = RoundedCornerShape(10.dp)
 
 /**
  * Karte (Entscheidung #6): Bild mit Quelle oben links und Energieklasse oben rechts
