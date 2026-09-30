@@ -1,7 +1,9 @@
 package de.immoscrabber.app.properties
 
+import de.immoscrabber.app.core.model.InseratPage
 import de.immoscrabber.app.core.model.Label
 import de.immoscrabber.app.core.model.PageCursor
+import de.immoscrabber.app.core.network.ApiResult
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -61,6 +63,75 @@ class InseratPagerTest {
         assertTrue(state.endReached)
         assertEquals(null, state.cursor)
         assertEquals(LoadState.Idle, state.loadState)
+    }
+
+    @Test
+    fun `überlappt die Folgeseite mit geladenen Einträgen, hängt loadMore nur die neuen an`() = runTest {
+        // Server mit gleichen created_at und Sekundenauflösung: der Cursor rückt nicht sauber vor.
+        source.pages[null] = page(ids = 1..20)
+        source.pages[PageCursor("t20", "20")] = page(ids = 11..30)
+        val pager = pager()
+        pager.refresh()
+        runCurrent()
+
+        pager.loadMore()
+        runCurrent()
+
+        assertEquals((1..30).map(Int::toString), pager.state.value.items.map { it.id })
+    }
+
+    @Test
+    fun `bringt eine Folgeseite nichts Neues, gilt die Liste als zu Ende statt endlos nachzuladen`() = runTest {
+        val cursor = PageCursor("t20", "20")
+        source.pages[null] = page(ids = 1..20)
+        source.pages[cursor] = page(ids = 1..20)
+        val pager = pager()
+        pager.refresh()
+        runCurrent()
+
+        pager.loadMore()
+        runCurrent()
+        pager.loadMore()
+        runCurrent()
+
+        assertEquals((1..20).map(Int::toString), pager.state.value.items.map { it.id })
+        assertTrue(pager.state.value.endReached)
+        assertEquals(listOf(null, cursor), source.requests)
+    }
+
+    @Test
+    fun `refresh übernimmt eine Seite ohne doppelte IDs`() = runTest {
+        source.pages[null] = ApiResult.Success(InseratPage(listOf(inserat("1"), inserat("2"), inserat("1")), null))
+        val pager = pager()
+
+        pager.refresh()
+        runCurrent()
+
+        assertEquals(listOf("1", "2"), pager.state.value.items.map { it.id })
+    }
+
+    @Test
+    fun `ein Nachladen, das erst nach einem refresh ankommt, wird verworfen`() = runTest {
+        // Die Antwort ist schon unterwegs und lässt sich nicht mehr abbrechen.
+        val cursor = PageCursor("t20", "20")
+        source.pages[null] = page(ids = 1..20)
+        source.pages[cursor] = page(ids = 21..40)
+        source.nonCancellable = true
+        val pager = pager()
+        pager.refresh()
+        runCurrent()
+        source.gate = CompletableDeferred()
+        pager.loadMore()
+        runCurrent()
+
+        source.pages[null] = page(ids = 100..101)
+        pager.refresh()
+        source.gate!!.complete(Unit)
+        runCurrent()
+
+        assertEquals(listOf("100", "101"), pager.state.value.items.map { it.id })
+        assertTrue(pager.state.value.endReached)
+        assertEquals(LoadState.Idle, pager.state.value.loadState)
     }
 
     @Test

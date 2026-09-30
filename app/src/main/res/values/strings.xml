@@ -56,6 +56,8 @@
 
     <!-- Kartenstapel im Filter „Neu“ (Entscheidungen #3, #6); %1$s ist der Typ im Plural -->
     <string name="stack_skip">Überspringen</string>
+    <string name="stack_stamp_interested">INTERESSANT</string>
+    <string name="stack_stamp_discard">VERWERFEN</string>
     <string name="more_options">Weitere Optionen</string>
     <string name="archive_all_new">Alle als uninteressant markieren</string>
     <string name="archive_all_new_question">Alle neuen %1$s ins Archiv verschieben? Das lässt sich nicht rückgängig machen.</string>

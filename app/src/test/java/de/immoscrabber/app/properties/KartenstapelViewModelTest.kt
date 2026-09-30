@@ -123,6 +123,20 @@ class KartenstapelViewModelTest {
     }
 
     @Test
+    fun `überlappt die nachgeladene Seite mit dem Stapel, liegt jede Karte nur einmal darin`() = runTest(dispatcher) {
+        // Server mit gleichen created_at in Sekundenauflösung: der Cursor rückt nicht vor, die
+        // Folgeseite beginnt wieder bei den noch unbewerteten Karten 17–20.
+        repository.pages[Label.UNBEWERTET] = page(1..20)
+        repository.nextPages[PageCursor("t20", "20")] = page(17..36)
+        val vm = PropertyListViewModel(PropertyType.HOUSE, repository).also { runCurrent() }
+
+        repeat(18) { vm.rate(vm.top, Label.UNINTERESSANT) }
+        runCurrent()
+
+        assertEquals((19..36).map(Int::toString), vm.ids)
+    }
+
+    @Test
     fun `Alle als uninteressant markieren archiviert die Neu-Liste des Typs, meldet die Anzahl und lädt neu`() =
         runTest(dispatcher) {
             val vm = stapel(1..8)

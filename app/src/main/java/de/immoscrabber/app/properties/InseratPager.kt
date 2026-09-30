@@ -48,6 +48,8 @@ data class RemovedInserat(val inserat: Inserat, val index: Int)
  *   bleiben stehen, bis die neue erste Seite da ist.
  * - [loadMore] ist für den automatischen Auslöser beim Scrollen gedacht und tut nichts, solange
  *   geladen wird, das Ende erreicht ist oder der letzte Versuch scheiterte; dafür gibt es [retry].
+ * - Keine ID steht je doppelt in der Liste (Schlüssel in LazyColumn und Kartenstapel), auch wenn
+ *   Seiten sich überlappen; eine Folgeseite ohne neue Einträge gilt als Ende.
  * - [remove]/[restore]/[update] ändern die geladene Liste optimistisch (Bewerten, Rückgängig),
  *   ohne den Cursor zu berühren.
  */
@@ -59,6 +61,9 @@ class InseratPager(
     val state: StateFlow<PagerState> = _state.asStateFlow()
 
     private var job: Job? = null
+
+    /** Zählt Ladevorgänge hoch; nur die Antwort des jüngsten wird übernommen. */
+    private var generation = 0
 
     fun refresh() {
         if (_state.value.loadState == LoadState.Loading(LoadKind.Refresh)) return
@@ -82,18 +87,27 @@ class InseratPager(
 
     private fun load(kind: LoadKind, cursor: PageCursor?) {
         job?.cancel()
+        // Nur die Antwort des jüngsten Ladevorgangs zählt; eine ältere, die trotz Abbruch
+        // noch ankommt (etwa ein Nachladen nach einem Refresh), wird verworfen.
+        val generation = ++generation
         _state.update { it.copy(loadState = LoadState.Loading(kind)) }
         job = scope.launch {
             val result = loadPage(cursor)
+            if (generation != this@InseratPager.generation) return@launch
             when (result) {
-                is ApiResult.Success -> _state.update {
-                    val page = result.value
-                    val items = if (kind == LoadKind.Refresh) page.inserate else it.items + page.inserate
-                    PagerState(items, page.nextCursor, page.nextCursor == null, LoadState.Idle, loaded = true)
-                }
+                is ApiResult.Success -> _state.update { it.withPage(kind, result.value) }
                 is ApiResult.Failure -> _state.update { it.copy(loadState = LoadState.Failed(kind, result.error)) }
             }
         }
+    }
+
+    private fun PagerState.withPage(kind: LoadKind, page: InseratPage): PagerState {
+        val base = if (kind == LoadKind.Refresh) emptyList() else items
+        val merged = base.appendNew(page.inserate)
+        // Bringt eine Folgeseite nichts Neues, rückt der Cursor nicht vor: Ende statt endlos nachladen.
+        val stalled = kind == LoadKind.Append && merged.size == items.size
+        val end = page.nextCursor == null || stalled
+        return PagerState(merged, page.nextCursor.takeUnless { end }, end, LoadState.Idle, loaded = true)
     }
 
     /** Nimmt das Inserat [id] aus der Liste; `null`, wenn es nicht geladen ist. */
@@ -127,6 +141,16 @@ class InseratPager(
             if (index < 0) return@update current
             current.copy(items = current.items.toMutableList().apply { add(removeAt(index)) })
         }
+    }
+
+    /**
+     * Hängt nur Inserate an, die weder in der Liste noch weiter vorn auf der Seite stehen. Keine
+     * ID darf doppelt vorkommen (sie ist Schlüssel in LazyColumn und Kartenstapel); Seiten können
+     * sich aber überlappen, etwa wenn der Server-Cursor bei gleichen `created_at` nicht vorrückt.
+     */
+    private fun List<Inserat>.appendNew(page: List<Inserat>): List<Inserat> {
+        val known = mapTo(HashSet()) { it.id }
+        return this + page.filter { known.add(it.id) }
     }
 
     /** Ersetzt das Inserat [id] an seiner Stelle (etwa ein neues Label unter „Alle“). */
