@@ -87,18 +87,24 @@ internal class BearerTokenInterceptor(private val tokenSource: AccessTokenSource
  *
  * Nur `GET`: Andere Methoden ändern Daten und werden nie still wiederholt (Entscheidung #6).
  * Ein abgebrochener Call wird nicht wiederholt.
+ *
+ * [bufferBody] `false` (Bild-Client, #56): Der Body bleibt ein Stream, damit große Fotos nicht
+ * ganz im Speicher landen. Wiederholt wird dann nur, wenn schon `proceed()` scheitert
+ * (Verbindung, Header), nicht ein Abbruch beim späteren Lesen des Bodys.
  */
-internal class RetryIdempotentReadInterceptor : Interceptor {
+internal class RetryIdempotentReadInterceptor(private val bufferBody: Boolean = true) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         if (request.method != "GET") return chain.proceed(request)
         return try {
-            chain.proceed(request).buffered()
+            chain.proceed(request).bufferedIfWanted()
         } catch (e: IOException) {
             if (chain.call().isCanceled()) throw e
-            chain.proceed(request).buffered()
+            chain.proceed(request).bufferedIfWanted()
         }
     }
+
+    private fun Response.bufferedIfWanted(): Response = if (bufferBody) buffered() else this
 
     /** Liest den Body komplett, damit ein Abbruch hier auffällt und nicht erst im Converter. */
     private fun Response.buffered(): Response {
