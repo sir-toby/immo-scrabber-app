@@ -45,11 +45,28 @@ class KartenGesteTest {
     }
 
     @Test
-    fun `senkrechtes Ziehen ist weder Tippen noch Wisch`() {
+    fun `senkrechtes Ziehen gehört dem Scrollen (Pull-to-Refresh)`() {
         val geste = KartenGeste(slop)
         geste.down(Offset(500f, 700f), uptimeMillis = 0)
         geste.move(Offset(505f, 800f))
-        assertEquals(KartenGeste.Ende.Verworfen, geste.up(Offset(510f, 900f), uptimeMillis = 200, step = Offset(5f, 100f)))
+        assertEquals(KartenGeste.Ende.Gescrollt, geste.up(Offset(510f, 900f), uptimeMillis = 200, step = Offset(5f, 100f)))
+    }
+
+    @Test
+    fun `senkrechtes Ziehen mit seitlichem Abdriften bleibt Scrollen`() {
+        val geste = KartenGeste(slop)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        geste.move(Offset(505f, 760f))
+        geste.move(Offset(540f, 900f))
+        assertEquals(KartenGeste.Ende.Gescrollt, geste.up(Offset(545f, 950f), uptimeMillis = 200))
+    }
+
+    @Test
+    fun `erst senkrecht gezogen, dann waagrecht weit weg losgelassen bleibt Scrollen`() {
+        val geste = KartenGeste(slop)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        geste.move(Offset(505f, 900f))
+        assertEquals(KartenGeste.Ende.Gescrollt, geste.up(Offset(900f, 900f), uptimeMillis = 200, step = Offset(395f, 0f)))
     }
 
     @Test

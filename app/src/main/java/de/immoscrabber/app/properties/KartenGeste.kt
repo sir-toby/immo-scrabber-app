@@ -31,22 +31,40 @@ internal class KartenGeste(private val touchSlop: Float) {
         /** Waagrecht weit weg losgelassen, ohne dass Bewegung ankam: wie ein Wisch um [dx] (px, px/s). */
         data class Sprung(val dx: Float, val velocity: Float) : Ende
 
-        /** Bewegt, aber nicht waagrecht (etwa Pull-to-Refresh): weder öffnen noch bewerten. */
+        /**
+         * Senkrecht weit weg losgelassen, ohne dass Bewegung ankam: weder öffnen noch bewerten.
+         * Das Loslassen muss verbraucht werden, sonst öffnet `clickable`.
+         */
         data object Verworfen : Ende
+
+        /**
+         * Senkrechte Bewegung kam an; sie gehört dem Scrollen bzw. Pull-to-Refresh, das auch
+         * `clickable` abbrechen lässt. Das Loslassen bleibt unverbraucht.
+         */
+        data object Gescrollt : Ende
     }
 
     private var downPosition = Offset.Zero
     private var downTime = 0L
+    private var movedVertically = false
     private var movedHorizontally = false
 
     fun down(position: Offset, uptimeMillis: Long) {
         downPosition = position
         downTime = uptimeMillis
+        movedVertically = false
         movedHorizontally = false
     }
 
+    /** Die Achse, die zuerst die Touch-Slop überschreitet, entscheidet (wie bei Scrollen/Ziehen). */
     fun move(position: Offset) {
-        if (abs(position.x - downPosition.x) > touchSlop) movedHorizontally = true
+        if (movedVertically || movedHorizontally) return
+        val delta = position - downPosition
+        when {
+            abs(delta.x) > touchSlop && abs(delta.x) >= abs(delta.y) -> movedHorizontally = true
+            abs(delta.y) > touchSlop -> movedVertically = true
+            abs(delta.x) > touchSlop -> movedHorizontally = true
+        }
     }
 
     /** [step]: Bewegung seit dem letzten Ereignis, die das Loslassen selbst mitbringt. */
@@ -54,6 +72,7 @@ internal class KartenGeste(private val touchSlop: Float) {
         val dx = position.x - downPosition.x
         return when {
             movedHorizontally -> Ende.Gezogen(restDx = step.x)
+            movedVertically -> Ende.Gescrollt
             (position - downPosition).getDistance() <= touchSlop -> Ende.Tippen
             abs(dx) > touchSlop -> {
                 val millis = (uptimeMillis - downTime).coerceAtLeast(1L)

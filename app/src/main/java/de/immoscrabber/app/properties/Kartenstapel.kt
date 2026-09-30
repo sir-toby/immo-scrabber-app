@@ -123,7 +123,18 @@ fun Kartenstapel(
     // [items], bis `onRate` sie entfernt; die Karte dahinter ist schon die oberste (#51).
     val flying = remember { mutableStateSetOf<String>() }
     // Bewertet wird in Wischreihenfolge, auch wenn eine spätere Karte schneller landet.
-    val folge = remember { BewertungsFolge<Inserat>() }
+    val folge = remember { BewertungsFolge<Inserat> { it.id } }
+    val currentOnRate by rememberUpdatedState(onRate)
+    // Verlässt eine fliegende Karte den Stapel (Refresh), darf sie die Bewertungen dahinter nicht
+    // aufhalten.
+    LaunchedEffect(items) {
+        val ids = items.mapTo(HashSet<Any>()) { it.id }
+        for ((item, label) in folge.retain(ids)) {
+            flying -= item.id
+            currentOnRate(item, label)
+        }
+        flying.retainAll(ids)
+    }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val height = maxHeight
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -288,7 +299,7 @@ private fun StackItem(
                     swipe.offset += ende.restDx
                     if (!swipe.dragging) settle(velocity = 0f)
                 }
-                KartenGeste.Ende.Tippen, KartenGeste.Ende.Verworfen -> Unit
+                KartenGeste.Ende.Tippen, KartenGeste.Ende.Verworfen, KartenGeste.Ende.Gescrollt -> Unit
             }
         }
     }
