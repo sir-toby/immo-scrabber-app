@@ -1,7 +1,6 @@
 package de.immoscrabber.app.core.network
 
 import kotlinx.serialization.json.Json
-import okhttp3.Authenticator
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -14,7 +13,7 @@ import java.util.concurrent.TimeUnit
 /**
  * Liefert das aktuelle Access-Token der Sitzung (oder `null` ohne Sitzung).
  *
- * Die Implementierung samt Speicherung stellt der Login-Slice (#26). Wird auf dem
+ * Implementiert von der Sitzung (`core.session.SessionTokens`). Wird auf dem
  * OkHttp-Thread gerufen, muss also schnell und threadsicher sein.
  */
 fun interface AccessTokenSource {
@@ -24,24 +23,24 @@ fun interface AccessTokenSource {
 /**
  * Baut OkHttp + Retrofit für die Basis-URL einer Sitzung und liefert das [ImmoApi].
  *
- * Seams für den Login-Slice (#26):
  * - [AccessTokenSource]: woher der Bearer-Interceptor das Token nimmt.
- * - `authenticator`: OkHttps [Authenticator] für den reaktiven Refresh bei 401/422.
- *   Bis #26 ihn liefert, ist er `null`, dann kommt ein 401 als [ApiError.SessionExpired] an.
+ * - `refreshInterceptor`: reaktiver Refresh bei 401/422 (`core.session.TokenRefreshInterceptor`).
+ *   Liegt hinter dem Bearer-Interceptor, sieht also das gesendete Token. Ohne ihn (Login,
+ *   Refresh selbst) kommt ein 401/422 direkt als [ApiError.SessionExpired] an.
  */
 class ApiClientFactory {
 
     fun create(
         baseUrl: String,
         tokenSource: AccessTokenSource,
-        authenticator: Authenticator? = null,
+        refreshInterceptor: Interceptor? = null,
     ): ImmoApi {
         val client = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             // Suchprofile speichern geocodiert synchron beim Server und kann dauern.
             .readTimeout(30, TimeUnit.SECONDS)
             .addInterceptor(BearerTokenInterceptor(tokenSource))
-            .apply { if (authenticator != null) authenticator(authenticator) }
+            .apply { if (refreshInterceptor != null) addInterceptor(refreshInterceptor) }
             .build()
         val retrofit = Retrofit.Builder()
             .baseUrl(baseUrl)

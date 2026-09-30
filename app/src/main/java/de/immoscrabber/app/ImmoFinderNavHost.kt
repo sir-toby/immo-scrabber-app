@@ -1,61 +1,70 @@
 package de.immoscrabber.app
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import de.immoscrabber.app.core.ui.theme.ImmoFinderTheme
+import de.immoscrabber.app.core.AppContainer
+import de.immoscrabber.app.core.session.SessionState
+import de.immoscrabber.app.login.LoginScreen
+import de.immoscrabber.app.login.LoginViewModel
+import de.immoscrabber.app.properties.HaeuserPlaceholderScreen
 import kotlinx.serialization.Serializable
 
-/** Typsichere Route des vorläufigen Start-Screens; die Slices ersetzen ihn durch Login/Tabs. */
+/** Login als Vollbild ohne Bottom Navigation. */
 @Serializable
-data object StartRoute
+data object LoginRoute
 
+/** Tab „Häuser“ (vorläufig ein Platzhalter; das Tabs-Ticket baut die Bottom Navigation). */
+@Serializable
+data object HaeuserRoute
+
+/**
+ * Wird erst gezeigt, wenn der Sitzungszustand feststeht (vorher hält der Splash). Folgt dem
+ * [SessionState]: angemeldet → „Häuser“, abgemeldet (Logout, Sitzungsende) → Login, jeweils
+ * mit geleertem Back-Stack.
+ */
 @Composable
-fun ImmoFinderNavHost() {
+fun ImmoFinderNavHost(container: AppContainer, initialState: SessionState) {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = StartRoute) {
-        composable<StartRoute> { StartScreen() }
-    }
-}
+    val sessionState by container.sessionManager.state.collectAsStateWithLifecycle()
+    val startDestination: Any = if (initialState is SessionState.LoggedIn) HaeuserRoute else LoginRoute
 
-@Composable
-private fun StartScreen() {
-    Scaffold { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.primary,
+    NavHost(navController = navController, startDestination = startDestination) {
+        composable<LoginRoute> {
+            val viewModel: LoginViewModel = viewModel(
+                factory = viewModelFactory {
+                    initializer {
+                        LoginViewModel(container.sessionManager, container.prodBaseUrl, container.allowLocalCleartext)
+                    }
+                },
             )
-            Text(
-                text = stringResource(R.string.start_placeholder),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            LoginScreen(viewModel)
+        }
+        composable<HaeuserRoute> { HaeuserPlaceholderScreen() }
+    }
+
+    LaunchedEffect(sessionState) {
+        when (sessionState) {
+            is SessionState.LoggedIn -> navController.navigateClearing(HaeuserRoute)
+            is SessionState.LoggedOut -> navController.navigateClearing(LoginRoute)
+            SessionState.Loading -> Unit
         }
     }
 }
 
-@Preview
-@Composable
-private fun StartScreenPreview() {
-    ImmoFinderTheme { StartScreen() }
+private fun NavHostController.navigateClearing(route: Any) {
+    if (currentDestination?.hasRoute(route::class) == true) return
+    navigate(route) {
+        popUpTo(graph.id) { inclusive = true }
+        launchSingleTop = true
+    }
 }
