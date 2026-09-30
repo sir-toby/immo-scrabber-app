@@ -34,12 +34,13 @@ internal class BewertungsFolge<T>(private val key: (T) -> Any) {
     }
 
     /**
-     * Vergisst fliegende Karten, deren Schlüssel nicht mehr in [keys] (dem Stapel) steht, etwa nach
-     * einem Refresh; so kann eine Karte, deren Flug nie endet, die übrigen nicht aufhalten.
-     * Liefert die Bewertungen, die dadurch fällig werden.
+     * Vergisst noch fliegende Karten, deren Schlüssel nicht mehr in [keys] (dem Stapel) steht, etwa
+     * nach einem Refresh; so kann eine Karte, deren Flug nie endet, die übrigen nicht aufhalten.
+     * Schon gelandete Karten bleiben stehen: Ihre Bewertung ist entschieden und geht in Reihenfolge
+     * raus. Liefert die Bewertungen, die dadurch fällig werden.
      */
     fun retain(keys: Set<Any>): List<Pair<T, Label>> {
-        fliegend.removeAll { it.key !in keys }
+        fliegend.removeAll { it.label == null && it.key !in keys }
         return faellige()
     }
 

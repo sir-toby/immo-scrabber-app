@@ -70,6 +70,20 @@ class BewertungsFolgeTest {
     }
 
     @Test
+    fun `eine schon gelandete Karte, die den Stapel verlässt, wird trotzdem bewertet`() {
+        val folge = folge()
+        folge.start(a)
+        folge.start(b)
+        assertEquals(emptyList<Pair<Karte, Label>>(), folge.finish(b, Label.UNINTERESSANT))
+        // Refresh: b ist gelandet und nicht mehr im Stapel, a fliegt noch.
+        assertEquals(emptyList<Pair<Karte, Label>>(), folge.retain(setOf("a")))
+        assertEquals(
+            listOf(a to Label.INTERESSANT, b to Label.UNINTERESSANT),
+            folge.finish(a, Label.INTERESSANT),
+        )
+    }
+
+    @Test
     fun `verlässt die vorderste Karte den Stapel, gehen die Bewertungen dahinter raus`() {
         val folge = folge()
         folge.start(a)

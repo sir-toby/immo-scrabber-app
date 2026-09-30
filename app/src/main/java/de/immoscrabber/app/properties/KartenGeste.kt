@@ -63,7 +63,6 @@ internal class KartenGeste(private val touchSlop: Float) {
         when {
             abs(delta.x) > touchSlop && abs(delta.x) >= abs(delta.y) -> movedHorizontally = true
             abs(delta.y) > touchSlop -> movedVertically = true
-            abs(delta.x) > touchSlop -> movedHorizontally = true
         }
     }
 
