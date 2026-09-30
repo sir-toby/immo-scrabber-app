@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -51,6 +52,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -264,9 +266,10 @@ private fun StackItem(inserat: Inserat, depth: Int, onRate: (Label) -> Unit, onC
  */
 @Composable
 private fun BoxScope.SwipeStamp(offset: () -> Float, threshold: Float) {
-    val x = offset()
-    if (x == 0f) return
-    val interested = x > 0f
+    // Die Zugstrecke wird nur im graphicsLayer gelesen; die Komposition hängt allein an der
+    // Richtung und läuft nur neu, wenn diese kippt.
+    val currentOffset by rememberUpdatedState(offset)
+    val interested by remember { derivedStateOf { currentOffset() > 0f } }
     val color = if (interested) MaterialTheme.immoColors.interessant else MaterialTheme.immoColors.uninteressant
     Text(
         text = stringResource(if (interested) R.string.stack_stamp_interested else R.string.stack_stamp_discard),
@@ -276,11 +279,13 @@ private fun BoxScope.SwipeStamp(offset: () -> Float, threshold: Float) {
         letterSpacing = 2.sp,
         maxLines = 1,
         modifier = Modifier
+            // Dekoration: Die Bewertung sagen Snackbar und Label an, nicht der Stempel.
+            .clearAndSetSemantics {}
             // Der Stempel steht auf der Seite, von der die Karte wegzieht.
             .align(if (interested) Alignment.TopStart else Alignment.TopEnd)
             .padding(horizontal = 24.dp, vertical = 64.dp)
             .graphicsLayer {
-                alpha = (abs(offset()) / threshold).coerceIn(0f, 1f)
+                alpha = (abs(currentOffset()) / threshold).coerceIn(0f, 1f)
                 rotationZ = if (interested) -STAMP_ROTATION else STAMP_ROTATION
             }
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f), StampShape)
