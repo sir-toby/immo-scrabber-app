@@ -1,5 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Immo-Finder</string>
-    <string name="start_placeholder">Hier entstehen die Inserate.</string>
+
+    <!-- Login (Entscheidungen #7, #20) -->
+    <string name="login_brand">Immo-Finder</string>
+    <string name="login_title">Anmelden</string>
+    <string name="login_username">Benutzername</string>
+    <string name="login_password">Passwort</string>
+    <string name="login_password_show">Passwort anzeigen</string>
+    <string name="login_password_hide">Passwort verbergen</string>
+    <string name="login_submit">Anmelden</string>
+    <string name="login_server">Server</string>
+    <string name="login_server_url">Server-Adresse</string>
+    <string name="login_server_hint">z. B. immo.example.com</string>
+    <string name="login_server_invalid">Ungültige Server-Adresse</string>
+    <string name="login_server_https_required">Nur HTTPS-Server werden unterstützt</string>
+    <string name="login_error_wrong_credentials">Benutzername oder Passwort falsch</string>
+    <string name="login_error_unreachable">Server nicht erreichbar</string>
+    <string name="login_error_unexpected_http">Unerwarteter Fehler (HTTP %1$d)</string>
+    <string name="login_error_unexpected">Unerwarteter Fehler</string>
+    <string name="login_session_expired">Sitzung abgelaufen, bitte neu anmelden</string>
+
+    <!-- Vorläufiger Platzhalter, bis die Tabs kommen -->
+    <string name="haeuser_title">Häuser</string>
+    <string name="haeuser_placeholder">Hier entstehen die Inserate.</string>
 </resources>

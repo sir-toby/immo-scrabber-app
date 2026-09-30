@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 11 und älter: Auto-Backup. Das Login-Ticket schließt hier die Token-Datei aus. -->
+<!-- Android 11 und älter: Auto-Backup. Token-Datei und Tink-Keyset bleiben auf dem Gerät
+     (Entscheidung #7); der Keystore-Master-Key wandert ohnehin nie mit. -->
 <full-backup-content>
-    <!-- <exclude domain="file" path="datastore/..." /> -->
+    <exclude domain="file" path="datastore/session_tokens.pb" />
+    <exclude domain="sharedpref" path="session_keyset.xml" />
 </full-backup-content>

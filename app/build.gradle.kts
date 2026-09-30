@@ -124,6 +124,9 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.okhttp)
+    implementation(libs.androidx.datastore)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.tink.android)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
