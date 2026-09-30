@@ -5,9 +5,11 @@ import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.Invocation
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -39,6 +41,8 @@ class ApiClientFactory {
             .connectTimeout(15, TimeUnit.SECONDS)
             // Suchprofile speichern geocodiert synchron beim Server und kann dauern.
             .readTimeout(30, TimeUnit.SECONDS)
+            // Zuerst: eine Wiederholung durchläuft Bearer und Refresh erneut, mit aktuellem Token.
+            .addInterceptor(RetryIdempotentReadInterceptor())
             .addInterceptor(BearerTokenInterceptor(tokenSource))
             .apply { if (refreshInterceptor != null) addInterceptor(refreshInterceptor) }
             .build()
@@ -73,6 +77,34 @@ internal class BearerTokenInterceptor(private val tokenSource: AccessTokenSource
         if (unauthenticated || request.header(AUTHORIZATION) != null) return chain.proceed(request)
         val token = tokenSource.accessToken() ?: return chain.proceed(request)
         return chain.proceed(request.newBuilder().header(AUTHORIZATION, bearer(token)).build())
+    }
+}
+
+/**
+ * Wiederholt ein `GET` genau einmal, wenn Senden oder Lesen mit einer [IOException] scheitert,
+ * etwa bei einem abgeschnittenen Body („unexpected end of stream“, #43). Dafür liest er den
+ * Body hier vollständig; OkHttps eigene Wiederholung greift nur beim Verbindungsaufbau.
+ *
+ * Nur `GET`: Andere Methoden ändern Daten und werden nie still wiederholt (Entscheidung #6).
+ * Ein abgebrochener Call wird nicht wiederholt.
+ */
+internal class RetryIdempotentReadInterceptor : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val request = chain.request()
+        if (request.method != "GET") return chain.proceed(request)
+        return try {
+            chain.proceed(request).buffered()
+        } catch (e: IOException) {
+            if (chain.call().isCanceled()) throw e
+            chain.proceed(request).buffered()
+        }
+    }
+
+    /** Liest den Body komplett, damit ein Abbruch hier auffällt und nicht erst im Converter. */
+    private fun Response.buffered(): Response {
+        val body = body ?: return this
+        val bytes = body.use { it.bytes() }
+        return newBuilder().body(bytes.toResponseBody(body.contentType())).build()
     }
 }
 
