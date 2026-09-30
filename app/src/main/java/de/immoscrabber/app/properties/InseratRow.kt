@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import de.immoscrabber.app.R
@@ -54,7 +55,7 @@ fun InseratRow(inserat: Inserat, showLabel: Boolean, onClick: () -> Unit, modifi
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Thumbnail(inserat, Modifier.size(88.dp))
+        InseratImage(inserat, Modifier.size(88.dp).clip(RoundedCornerShape(8.dp)))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = formatPrice(inserat.price),
@@ -100,12 +101,11 @@ fun InseratRow(inserat: Inserat, showLabel: Boolean, onClick: () -> Unit, modifi
     }
 }
 
-/** Bild oder grauer Platzhalter mit Typ-Icon (ohne Bild, bei unbrauchbarer URL, bei Ladefehler). */
+/** Bild oder grauer Platzhalter mit Typ-Icon (ohne Bild, bei unbrauchbarer URL, bei Ladefehler); für Zeile und Karte. */
 @Composable
-private fun Thumbnail(inserat: Inserat, modifier: Modifier) {
+internal fun InseratImage(inserat: Inserat, modifier: Modifier, iconSize: Dp = 36.dp) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
@@ -113,7 +113,7 @@ private fun Thumbnail(inserat: Inserat, modifier: Modifier) {
             imageVector = inserat.propertyType.icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(iconSize),
         )
         // Lädt das Bild nicht, bleibt es transparent und der Platzhalter darunter sichtbar.
         thumbnailUrl(inserat.imageUrl)?.let { url ->
@@ -128,14 +128,14 @@ private fun Thumbnail(inserat: Inserat, modifier: Modifier) {
 }
 
 @Composable
-private fun EnergyClassBadge(energyClass: String?) {
+internal fun EnergyClassBadge(energyClass: String?, modifier: Modifier = Modifier) {
     val color = MaterialTheme.immoColors.energyClass(energyClass) ?: return
     Text(
         text = energyClass!!.trim().uppercase(),
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.immoColors.onEnergyClass,
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(4.dp))
             .background(color)
             .padding(horizontal = 6.dp, vertical = 1.dp),

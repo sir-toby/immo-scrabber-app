@@ -6,6 +6,7 @@ import de.immoscrabber.app.core.model.Label
 import de.immoscrabber.app.core.model.PageCursor
 import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.network.ApiResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -217,6 +218,7 @@ class PropertyListViewModelTest {
 
 data class PageRequest(val type: PropertyType, val label: Label?, val cursor: PageCursor?)
 data class LabelRequest(val type: PropertyType, val id: String, val label: Label)
+data class BulkRequest(val type: PropertyType, val label: Label)
 
 class FakeInseratRepository : InseratRepository {
     /** Erste Seiten je Label (`null` = „Alle“). */
@@ -225,13 +227,29 @@ class FakeInseratRepository : InseratRepository {
     val labelRequests = mutableListOf<LabelRequest>()
     var labelResult: ApiResult<Unit> = ApiResult.Success(Unit)
 
+    /** Hält PATCH-Antworten zurück, bis es abgeschlossen wird. */
+    var labelGate: CompletableDeferred<Unit>? = null
+
+    /** Folgeseiten je Cursor (die erste Seite kommt aus [pages]). */
+    val nextPages = mutableMapOf<PageCursor, ApiResult<InseratPage>>()
+
     override suspend fun seite(type: PropertyType, label: Label?, cursor: PageCursor?): ApiResult<InseratPage> {
         pageRequests += PageRequest(type, label, cursor)
+        if (cursor != null) return nextPages[cursor] ?: error("keine Seite für $cursor")
         return pages[label] ?: error("keine Seite für $label")
+    }
+
+    val bulkRequests = mutableListOf<BulkRequest>()
+    var bulkResult: ApiResult<Int> = ApiResult.Success(0)
+
+    override suspend fun alleNeuenBewerten(type: PropertyType, label: Label): ApiResult<Int> {
+        bulkRequests += BulkRequest(type, label)
+        return bulkResult
     }
 
     override suspend fun bewerten(type: PropertyType, id: String, label: Label): ApiResult<Unit> {
         labelRequests += LabelRequest(type, id, label)
+        labelGate?.await()
         return labelResult
     }
 }
