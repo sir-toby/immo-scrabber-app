@@ -67,7 +67,9 @@ class InseratPagerTest {
 
     @Test
     fun `überlappt die Folgeseite mit geladenen Einträgen, hängt loadMore nur die neuen an`() = runTest {
-        // Server mit gleichen created_at und Sekundenauflösung: der Cursor rückt nicht sauber vor.
+        // Backend-Fehler immo-scrabber#145 (https://github.com/sir-toby/immo-scrabber/issues/145):
+        // `created_at` in Sekunden, Cursor-Vergleich in Mikrosekunden, deshalb wiederholt die
+        // Folgeseite alle Inserate derselben Sekunde.
         source.pages[null] = page(ids = 1..20)
         source.pages[PageCursor("t20", "20")] = page(ids = 11..30)
         val pager = pager()
@@ -82,6 +84,7 @@ class InseratPagerTest {
 
     @Test
     fun `bringt eine Folgeseite nichts Neues, gilt die Liste als zu Ende statt endlos nachzuladen`() = runTest {
+        // Nur eine Schutzregel gegen Endlosladen bei immo-scrabber#145; im Fehlerfall kürzt sie die Liste.
         val cursor = PageCursor("t20", "20")
         source.pages[null] = page(ids = 1..20)
         source.pages[cursor] = page(ids = 1..20)

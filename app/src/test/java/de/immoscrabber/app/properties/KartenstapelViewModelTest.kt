@@ -124,8 +124,9 @@ class KartenstapelViewModelTest {
 
     @Test
     fun `überlappt die nachgeladene Seite mit dem Stapel, liegt jede Karte nur einmal darin`() = runTest(dispatcher) {
-        // Server mit gleichen created_at in Sekundenauflösung: der Cursor rückt nicht vor, die
-        // Folgeseite beginnt wieder bei den noch unbewerteten Karten 17–20.
+        // Backend-Fehler immo-scrabber#145 (https://github.com/sir-toby/immo-scrabber/issues/145):
+        // `created_at` in Sekunden, Cursor-Vergleich in Mikrosekunden. Die Folgeseite beginnt deshalb
+        // wieder bei den noch unbewerteten Karten 17–20 derselben Sekunde.
         repository.pages[Label.UNBEWERTET] = page(1..20)
         repository.nextPages[PageCursor("t20", "20")] = page(17..36)
         val vm = PropertyListViewModel(PropertyType.HOUSE, repository).also { runCurrent() }

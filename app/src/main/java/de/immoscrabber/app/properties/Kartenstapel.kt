@@ -246,10 +246,11 @@ private fun StackItem(
             else -> 0
         }
         if (direction == 0) {
+            // Ohne Überschwingen: Schwänge die Karte über die Mitte, blitzte kurz der Stempel der
+            // Gegenrichtung auf.
+            val back = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
             swipe.settle = scope.launch {
-                animate(x, 0f, velocity, spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)) { value, _ ->
-                    swipe.offset = value
-                }
+                animate(x, 0f, velocity, back) { value, _ -> swipe.offset = value }
             }
             return
         }
