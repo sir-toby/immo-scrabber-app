@@ -11,7 +11,7 @@ export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"   # Windows / Git
 ./gradlew testDebugUnitTest lintDebug assembleDebug
 ```
 
-Die Debug-APK liegt danach unter `app/build/outputs/apk/debug/app-debug.apk`. Genau diese drei Tasks laufen auch als CI-Check bei jedem Push und PR (`.github/workflows/check.yml`). Lint bricht nur bei Errors ab, Warnungen stehen im Report.
+Die Debug-APK liegt danach unter `app/build/outputs/apk/debug/app-debug.apk`. Genau diese drei Tasks laufen auch als CI-Check bei jedem PR und jedem Push auf `main` (`.github/workflows/check.yml`). Lint bricht nur bei Errors ab, Warnungen stehen im Report.
 
 ## Release
 

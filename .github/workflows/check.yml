@@ -1,9 +1,10 @@
 name: Check
 
-# Bei jedem Push und PR: Unit-Tests, Lint (nur Errors brechen ab) und Debug-Build.
+# Bei jedem PR und jedem Push auf main: Unit-Tests, Lint (nur Errors brechen ab) und Debug-Build.
+# Feature-Branches laufen über ihren PR, so gibt es pro Commit genau einen Lauf.
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
 
 permissions:
@@ -17,9 +18,6 @@ concurrency:
 jobs:
   check:
     name: Tests, Lint, Debug-Build
-    # PRs aus diesem Repo sind schon durch den Push-Lauf abgedeckt (der Check hängt am
-    # Commit und erscheint im PR); pull_request läuft nur für PRs aus Forks.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
