@@ -10,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -48,6 +51,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -88,6 +96,13 @@ private const val STAMP_ROTATION = 15f
 val StackFooterHeight = 48.dp
 
 /**
+ * Fester Platz unter der Karte für die Snackbar (einzeilig 48 dp plus 12 dp Rand oben und unten),
+ * damit sie Titel, Ort und Eckdaten nie verdeckt (#52). Er bleibt immer frei, so ändert die Karte
+ * ihre Größe nicht, wenn eine Snackbar kommt oder geht.
+ */
+private val SnackbarSpace = 72.dp
+
+/**
  * Kartenstapel für den Filter „Neu“ (Entscheidungen #3, #6): oben die erste Karte der geladenen
  * Liste, dahinter zwei weitere. Wischen rechts = interessant, links = uninteressant; beim Ziehen
  * zeigt ein Stempel die Richtung, sonst keine Richtungshinweise. Darunter „N übrig“ und
@@ -104,20 +119,47 @@ fun Kartenstapel(
     onOpen: (Inserat) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Karten, deren Bewertung entschieden ist und die gerade hinausfliegen. Sie liegen vorn in
+    // [items], bis `onRate` sie entfernt; die Karte dahinter ist schon die oberste (#51).
+    val flying = remember { mutableStateSetOf<String>() }
+    // Bewertet wird in Wischreihenfolge, auch wenn eine spätere Karte schneller landet.
+    val folge = remember { BewertungsFolge<Inserat> { it.id } }
+    val currentOnRate by rememberUpdatedState(onRate)
+    // Verlässt eine fliegende Karte den Stapel (Refresh), darf sie die Bewertungen dahinter nicht
+    // aufhalten.
+    LaunchedEffect(items) {
+        val ids = items.mapTo(HashSet<Any>()) { it.id }
+        for ((item, label) in folge.retain(ids)) {
+            flying -= item.id
+            currentOnRate(item, label)
+        }
+        flying.retainAll(ids)
+    }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val height = maxHeight
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             Column(Modifier.height(height).padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
-                Box(Modifier.fillMaxWidth().weight(1f).padding(bottom = 20.dp)) {
-                    val visible = items.take(VISIBLE_CARDS)
+                Box(Modifier.fillMaxWidth().weight(1f).padding(bottom = SnackbarSpace)) {
+                    val visible = items.take(VISIBLE_CARDS + flying.size)
+                    val flyingAhead = visible.runningFold(0) { n, item -> if (item.id in flying) n + 1 else n }
                     // Von hinten nach vorn zeichnen; der Schlüssel hält Zustand und Animation je Karte.
-                    for (depth in visible.indices.reversed()) {
-                        val inserat = visible[depth]
+                    for (index in visible.indices.reversed()) {
+                        val inserat = visible[index]
+                        val depth = if (inserat.id in flying) 0 else index - flyingAhead[index]
                         key(inserat.id) {
                             StackItem(
                                 inserat = inserat,
                                 depth = depth,
-                                onRate = { label -> onRate(inserat, label) },
+                                onRate = { label ->
+                                    for ((item, itemLabel) in folge.finish(inserat, label)) {
+                                        flying -= item.id
+                                        onRate(item, itemLabel)
+                                    }
+                                },
+                                onFlyOut = {
+                                    flying += inserat.id
+                                    folge.start(inserat)
+                                },
                                 onClick = { onOpen(inserat) },
                             )
                         }
@@ -133,7 +175,7 @@ fun Kartenstapel(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = { items.firstOrNull()?.let(onSkip) }) {
+                    TextButton(onClick = { items.firstOrNull { it.id !in flying }?.let(onSkip) }) {
                         Text(stringResource(R.string.stack_skip), style = MaterialTheme.typography.labelMedium)
                     }
                 }
@@ -153,14 +195,26 @@ private class SwipeState {
     /** Die Karte fliegt heraus; die Bewertung ist entschieden, weitere Gesten zählen nicht. */
     var flyingOut by mutableStateOf(false)
 
+    /** `draggable` hat die laufende Geste als Ziehen erkannt. */
+    var dragging = false
+
     /** Haptisches Signal beim Überschreiten der Schwelle, einmal je Überschreiten. */
     var armed = false
     var settle: Job? = null
 }
 
-/** Eine Karte im Stapel; nur die oberste ([depth] 0) lässt sich wischen und antippen. */
+/**
+ * Eine Karte im Stapel; nur die oberste ([depth] 0) lässt sich wischen und antippen. [onFlyOut]
+ * meldet, dass die Bewertung entschieden ist und die Karte hinausfliegt, [onRate] kommt danach.
+ */
 @Composable
-private fun StackItem(inserat: Inserat, depth: Int, onRate: (Label) -> Unit, onClick: () -> Unit) {
+private fun StackItem(
+    inserat: Inserat,
+    depth: Int,
+    onRate: (Label) -> Unit,
+    onFlyOut: () -> Unit,
+    onClick: () -> Unit,
+) {
     // Rückt eine Karte nach vorn, wächst sie weich auf volle Größe.
     val animatedDepth by animateFloatAsState(depth.toFloat(), label = "depth")
     val isTop = depth == 0
@@ -176,6 +230,7 @@ private fun StackItem(inserat: Inserat, depth: Int, onRate: (Label) -> Unit, onC
     val swipe = remember { SwipeState() }
     val currentOnRate by rememberUpdatedState(onRate)
     val currentOnClick by rememberUpdatedState(onClick)
+    val currentOnFlyOut by rememberUpdatedState(onFlyOut)
     // Gesten sind auf jeder Karte aktiv und prüfen erst beim Auslösen, ob sie oben liegt: Schaltete
     // `enabled` mitten in einer Geste um (die Karte davor fliegt gerade heraus), setzt Compose die
     // Zeigerverarbeitung zurück, und ein Wisch käme als Tippen an.
@@ -201,6 +256,7 @@ private fun StackItem(inserat: Inserat, depth: Int, onRate: (Label) -> Unit, onC
             return
         }
         swipe.flyingOut = true
+        currentOnFlyOut()
         val target = direction * screenWidth * 1.5f
         // Mindestens mit Fling-Geschwindigkeit weiter; ein schneller Wisch fliegt schneller ab.
         val speed = max(abs(velocity), flingVelocity)
@@ -226,6 +282,29 @@ private fun StackItem(inserat: Inserat, depth: Int, onRate: (Label) -> Unit, onC
         }
     }
 
+    // Unter Last kommen Bewegungen verspätet oder gar nicht an (#51); das Loslassen bringt dann
+    // die restliche Strecke mit.
+    val onRelease: (KartenGeste.Ende) -> Unit = { ende ->
+        if (isTop && !swipe.flyingOut) {
+            when (ende) {
+                // Nur Aufsetzen und Loslassen: einrasten, als wäre die Karte um die ganze Strecke
+                // gezogen worden. Herausfliegen oder zurückfedern, nie öffnen.
+                is KartenGeste.Ende.Sprung -> {
+                    swipe.settle?.cancel()
+                    swipe.offset += ende.dx
+                    settle(ende.velocity)
+                }
+                // Die Reststrecke zählt mit; `onDragStopped` rastet danach ein.
+                is KartenGeste.Ende.Gezogen -> if (ende.restDx != 0f) {
+                    swipe.offset += ende.restDx
+                    if (!swipe.dragging) settle(velocity = 0f)
+                }
+                KartenGeste.Ende.Tippen, KartenGeste.Ende.Verworfen, KartenGeste.Ende.Gescrollt -> Unit
+            }
+        }
+    }
+    val currentOnRelease by rememberUpdatedState(onRelease)
+
     // Rutscht die Karte nach hinten, während sie verschoben ist (etwa weil eine zurückgeholte
     // Karte oben landet), endet die Geste womöglich ohne Loslassen: dann zurück in die Mitte.
     LaunchedEffect(isTop) {
@@ -245,18 +324,60 @@ private fun StackItem(inserat: Inserat, depth: Int, onRate: (Label) -> Unit, onC
                 translationX = swipe.offset
                 rotationZ = swipe.offset / screenWidth * MAX_ROTATION
             }
-            .draggable(
-                state = dragState,
-                orientation = Orientation.Horizontal,
-                // Ein neuer Griff fängt eine zurückfedernde Karte an ihrer Stelle auf.
-                onDragStarted = { if (currentIsTop && !swipe.flyingOut) swipe.settle?.cancel() },
-                // Kommt auch bei abgebrochener Geste (dann mit Geschwindigkeit 0).
-                onDragStopped = { velocity -> if (currentIsTop || swipe.offset != 0f) settle(velocity) },
-            )
-            .clickable { if (currentIsTop && !swipe.flyingOut) currentOnClick() },
+            // Die hinausfliegende Karte nimmt keine Berührungen mehr an; sie gehen an die Karte darunter.
+            .then(
+                if (swipe.flyingOut) {
+                    Modifier
+                } else {
+                    Modifier
+                        .draggable(
+                            state = dragState,
+                            orientation = Orientation.Horizontal,
+                            // Ein neuer Griff fängt eine zurückfedernde Karte an ihrer Stelle auf.
+                            onDragStarted = {
+                                swipe.dragging = true
+                                // Kommt verspätet über einen Kanal; rastet die Karte schon ein
+                                // (das Loslassen war schneller), bleibt das Einrasten stehen.
+                                if (currentIsTop && !swipe.flyingOut) swipe.settle?.cancel()
+                            },
+                            // Kommt auch bei abgebrochener Geste (dann mit Geschwindigkeit 0).
+                            onDragStopped = { velocity ->
+                                swipe.dragging = false
+                                if (currentIsTop || swipe.offset != 0f) settle(velocity)
+                            },
+                        )
+                        // Vor `clickable`: ein Loslassen weit weg vom Aufsetzpunkt ist nie ein Tippen (#51).
+                        .pointerInput(Unit) { observeRelease { ende -> currentOnRelease(ende) } }
+                        .clickable { if (currentIsTop) currentOnClick() }
+                },
+            ),
     ) {
         StackCard(inserat, elevated = depth < VISIBLE_CARDS - 1)
         SwipeStamp(offset = { swipe.offset }, threshold = threshold)
+    }
+}
+
+/**
+ * Beobachtet jede Berührung im Initial-Durchlauf, also vor `clickable` weiter innen, und meldet
+ * beim Loslassen, was sie war ([KartenGeste]). [KartenGeste.Ende.Sprung] und
+ * [KartenGeste.Ende.Verworfen] verbraucht sie: `clickable` bricht ab, statt das Inserat zu öffnen. Sonst verbraucht sie nichts, Tippen und
+ * Ziehen behalten ihr Verhalten.
+ */
+private suspend fun PointerInputScope.observeRelease(onRelease: (KartenGeste.Ende) -> Unit) {
+    val geste = KartenGeste(viewConfiguration.touchSlop)
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        geste.down(down.position, down.uptimeMillis)
+        while (true) {
+            val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+            if (change.changedToUpIgnoreConsumed()) {
+                val ende = geste.up(change.position, change.uptimeMillis, step = change.positionChangeIgnoreConsumed())
+                if (ende is KartenGeste.Ende.Sprung || ende is KartenGeste.Ende.Verworfen) change.consume()
+                onRelease(ende)
+                break
+            }
+            geste.move(change.position)
+        }
     }
 }
 

@@ -122,7 +122,8 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
         }
     }
 
-    // Über dem Kartenstapel sitzt die Snackbar oberhalb von „Überspringen“ (Entscheidung #3).
+    // Über dem Kartenstapel sitzt die Snackbar oberhalb von „Überspringen“ (Entscheidung #3), im
+    // Platz, den der Stapel unter der Karte freihält (#52).
     val stackVisible = state.filter == Filter.Neu && state.pager.items.isNotEmpty()
     Scaffold(
         topBar = {
