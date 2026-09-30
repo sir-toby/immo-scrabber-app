@@ -53,4 +53,25 @@
     <string name="undo_failed">Rückgängig nicht möglich</string>
     <string name="no_link">Kein Link zum Inserat</string>
     <string name="link_failed">Inserat lässt sich nicht öffnen</string>
+
+    <!-- Kartenstapel im Filter „Neu“ (Entscheidungen #3, #6); %1$s ist der Typ im Plural -->
+    <string name="stack_skip">Überspringen</string>
+    <string name="more_options">Weitere Optionen</string>
+    <string name="archive_all_new">Alle als uninteressant markieren</string>
+    <string name="archive_all_new_question">Alle neuen %1$s ins Archiv verschieben? Das lässt sich nicht rückgängig machen.</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="archive_all_new_confirm">Ins Archiv</string>
+    <string name="archive_all_new_failed">Konnte %1$s nicht ins Archiv verschieben</string>
+    <plurals name="archived_all_houses">
+        <item quantity="one">%1$d Haus ins Archiv verschoben</item>
+        <item quantity="other">%1$d Häuser ins Archiv verschoben</item>
+    </plurals>
+    <plurals name="archived_all_flats">
+        <item quantity="one">%1$d Wohnung ins Archiv verschoben</item>
+        <item quantity="other">%1$d Wohnungen ins Archiv verschoben</item>
+    </plurals>
+    <plurals name="archived_all_sites">
+        <item quantity="one">%1$d Grundstück ins Archiv verschoben</item>
+        <item quantity="other">%1$d Grundstücke ins Archiv verschoben</item>
+    </plurals>
 </resources>

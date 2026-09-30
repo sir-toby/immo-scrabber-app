@@ -18,8 +18,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -38,7 +43,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -94,7 +101,9 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
         undoFailed = stringResource(R.string.undo_failed),
         noLink = stringResource(R.string.no_link),
         linkFailed = stringResource(R.string.link_failed),
+        archiveAllFailed = stringResource(R.string.archive_all_new_failed, typeName),
     )
+    var confirmArchiveAll by rememberSaveable { mutableStateOf(false) }
 
     // collectLatest: jede neue Snackbar ersetzt die vorige, also bleibt nur die letzte
     // Bewertung rückgängig zu machen.
@@ -113,9 +122,21 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
         }
     }
 
+    // Über dem Kartenstapel sitzt die Snackbar oberhalb von „Überspringen“ (Entscheidung #3).
+    val stackVisible = state.filter == Filter.Neu && state.pager.items.isNotEmpty()
     Scaffold(
-        topBar = { TopAppBar(title = { Text(typeName) }) },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = { Text(typeName) },
+                actions = { if (state.filter == Filter.Neu) NeuOverflowMenu(onArchiveAll = { confirmArchiveAll = true }) },
+            )
+        },
+        snackbarHost = {
+            SnackbarHost(
+                snackbarHostState,
+                Modifier.padding(bottom = if (stackVisible) StackFooterHeight else 0.dp),
+            )
+        },
     ) { innerPadding ->
         Column(Modifier.padding(innerPadding).fillMaxSize()) {
             FilterChips(state.filter, viewModel::selectFilter)
@@ -130,6 +151,48 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
             }
         }
     }
+
+    if (confirmArchiveAll) {
+        ArchiveAllDialog(
+            typeName = typeName,
+            onConfirm = {
+                confirmArchiveAll = false
+                viewModel.archiveAllNew()
+            },
+            onDismiss = { confirmArchiveAll = false },
+        )
+    }
+}
+
+/** ⋮-Menü in der App-Leiste, nur unter „Neu“ (Entscheidung #6). */
+@Composable
+private fun NeuOverflowMenu(onArchiveAll: () -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more_options))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.archive_all_new)) },
+                onClick = {
+                    expanded = false
+                    onArchiveAll()
+                },
+            )
+        }
+    }
+}
+
+/** Bestätigung ohne Zahl (Entscheidung #6); der Endpunkt lässt sich nicht rückgängig machen. */
+@Composable
+private fun ArchiveAllDialog(typeName: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = { Text(stringResource(R.string.archive_all_new_question, typeName)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.archive_all_new_confirm)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable
@@ -158,8 +221,24 @@ private fun ListContent(
         !pager.loaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
+        // Kartenstapel leer, aber es gibt weitere Seiten: Nachladen läuft oder ist gescheitert.
+        state.filter == Filter.Neu && pager.items.isEmpty() && !pager.endReached ->
+            if (loadState is LoadState.Failed) {
+                MessageState(
+                    title = stringResource(R.string.load_failed, typeName),
+                    action = stringResource(R.string.retry) to viewModel::retryLoading,
+                )
+            } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            }
         pager.items.isEmpty() -> EmptyState(state.filter, typeName)
-        // Hier setzt der Kartenstapel für „Neu“ an; bis dahin zeigt auch „Neu“ die Wischliste.
+        state.filter == Filter.Neu -> Kartenstapel(
+            items = pager.items,
+            moreAvailable = !pager.endReached,
+            onRate = viewModel::rate,
+            onSkip = viewModel::skip,
+            onOpen = viewModel::open,
+        )
         else -> Wischliste(
             items = pager.items,
             filter = state.filter,
@@ -305,6 +384,7 @@ private class SnackbarTexts(
     val undoFailed: String,
     val noLink: String,
     val linkFailed: String,
+    val archiveAllFailed: String,
 )
 
 private suspend fun handleEvent(
@@ -326,6 +406,10 @@ private suspend fun handleEvent(
         }
         ListEvent.UndoFailed -> snackbarHostState.showSnackbar(texts.undoFailed)
         ListEvent.NoLink -> snackbarHostState.showSnackbar(texts.noLink)
+        is ListEvent.BulkArchived -> snackbarHostState.showSnackbar(
+            context.resources.getQuantityString(viewModel.type.archivedAllMessage, event.count, event.count),
+        )
+        ListEvent.BulkArchiveFailed -> snackbarHostState.showSnackbar(texts.archiveAllFailed)
         is ListEvent.OpenLink -> {
             try {
                 CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(context, event.url.toUri())

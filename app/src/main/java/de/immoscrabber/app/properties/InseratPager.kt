@@ -120,6 +120,15 @@ class InseratPager(
         }
     }
 
+    /** Stellt das Inserat [id] ans Ende der geladenen Liste (Überspringen im Kartenstapel). */
+    fun moveToEnd(id: String) {
+        _state.update { current ->
+            val index = current.items.indexOfFirst { it.id == id }
+            if (index < 0) return@update current
+            current.copy(items = current.items.toMutableList().apply { add(removeAt(index)) })
+        }
+    }
+
     /** Ersetzt das Inserat [id] an seiner Stelle (etwa ein neues Label unter „Alle“). */
     fun update(id: String, transform: (Inserat) -> Inserat) {
         _state.update { current ->

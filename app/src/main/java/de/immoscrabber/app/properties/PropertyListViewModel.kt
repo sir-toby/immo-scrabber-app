@@ -20,6 +20,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Der Kartenstapel lädt nach, sobald weniger als so viele Karten übrig sind (Entscheidung #6). */
+private const val STACK_LOAD_MORE_THRESHOLD = 5
+
 /** Filter-Chips eines Tabs; [label] ist der Query-Wert (`null` = alle Labels). */
 enum class Filter(val label: Label?) {
     Neu(Label.UNBEWERTET),
@@ -55,6 +58,12 @@ sealed interface ListEvent {
 
     /** „Kein Link zum Inserat“. */
     data object NoLink : ListEvent
+
+    /** „37 Häuser ins Archiv verschoben“, ohne Rückgängig (der Endpunkt liefert keine IDs). */
+    data class BulkArchived(val count: Int) : ListEvent
+
+    /** „Alle als uninteressant markieren“ ist gescheitert; der Stapel bleibt. */
+    data object BulkArchiveFailed : ListEvent
 }
 
 data class PropertyListUiState(
@@ -147,6 +156,32 @@ class PropertyListViewModel(
         }
     }
 
+    /**
+     * „Überspringen“ im Kartenstapel: Die Karte bleibt unbewertet und wandert ans Ende des
+     * geladenen Stapels, nur im Speicher (Entscheidung #6).
+     */
+    fun skip(inserat: Inserat) {
+        pager.moveToEnd(inserat.id)
+    }
+
+    /**
+     * „Alle als uninteressant markieren“ (⋮-Menü unter „Neu“, nach dem Bestätigungsdialog):
+     * archiviert serverseitig genau die „Neu“-Liste des Typs und lädt den Stapel danach neu.
+     * Kein Rückgängig; auch die letzte Einzelbewertung ist danach nicht mehr rückgängig zu machen.
+     */
+    fun archiveAllNew() {
+        viewModelScope.launch {
+            when (val result = repository.alleNeuenBewerten(type, Label.UNINTERESSANT)) {
+                is ApiResult.Success -> {
+                    lastRating = null
+                    _events.send(ListEvent.BulkArchived(result.value))
+                    if (_state.value.filter == Filter.Neu) pager.refresh()
+                }
+                is ApiResult.Failure -> _events.send(ListEvent.BulkArchiveFailed)
+            }
+        }
+    }
+
     /** Tipp auf eine Zeile: Inserat öffnen oder „Kein Link zum Inserat“. */
     fun open(inserat: Inserat) {
         val url = inserat.url?.trim()
@@ -179,7 +214,14 @@ class PropertyListViewModel(
         val newPager = InseratPager(scope) { cursor -> repository.seite(type, filter.label, cursor) }
         pager = newPager
         _state.value = PropertyListUiState(filter, newPager.state.value)
-        scope.launch { newPager.state.collect { pagerState -> _state.update { it.copy(pager = pagerState) } } }
+        scope.launch {
+            newPager.state.collect { pagerState ->
+                _state.update { it.copy(pager = pagerState) }
+                // Kartenstapel: still nachladen, sobald weniger als 5 Karten übrig sind. Der Pager
+                // ignoriert das während des Ladens, am Ende und nach einem Fehler (dann „Erneut versuchen“).
+                if (filter == Filter.Neu && pagerState.items.size < STACK_LOAD_MORE_THRESHOLD) newPager.loadMore()
+            }
+        }
         newPager.refresh()
     }
 }

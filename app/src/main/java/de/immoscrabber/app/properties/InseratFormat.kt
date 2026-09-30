@@ -27,14 +27,22 @@ fun formatFacts(inserat: Inserat): String = listOfNotNull(
     inserat.constructionYear?.let { "Bj. $it" },
 ).joinToString(SEPARATOR)
 
+/** „PLZ Ort“ (Karte im Kartenstapel); fehlende Teile fallen weg. */
+fun formatPlace(inserat: Inserat): String = listOfNotNull(inserat.zipCode, inserat.city)
+    .map(String::trim)
+    .filter(String::isNotEmpty)
+    .joinToString(" ")
+
 /** Zeile der Wischliste: „PLZ Ort · Eckdaten“, fehlende Teile fallen weg. */
-fun formatPlaceAndFacts(inserat: Inserat): String {
-    val place = listOfNotNull(inserat.zipCode, inserat.city)
-        .map(String::trim)
-        .filter(String::isNotEmpty)
-        .joinToString(" ")
-    return listOf(place, formatFacts(inserat)).filter(String::isNotEmpty).joinToString(SEPARATOR)
-}
+fun formatPlaceAndFacts(inserat: Inserat): String =
+    listOf(formatPlace(inserat), formatFacts(inserat)).filter(String::isNotEmpty).joinToString(SEPARATOR)
+
+/**
+ * Zähler unter dem Kartenstapel (Entscheidung #6): „N übrig“, solange weitere Seiten existieren
+ * „20+ übrig“ (die API nennt keine Gesamtzahl).
+ */
+fun formatRemaining(count: Int, moreAvailable: Boolean): String =
+    if (moreAvailable) "20+ übrig" else "$count übrig"
 
 /**
  * Lädbare Bild-URL oder `null` für den Platzhalter (Entscheidung #10): `https://` bleibt,
