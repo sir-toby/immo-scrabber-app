@@ -114,24 +114,24 @@ private val SnackbarSpace = 72.dp
 fun Kartenstapel(
     items: List<Inserat>,
     moreAvailable: Boolean,
-    onRate: (Inserat, Label) -> Unit,
+    onBewerten: (Inserat, Label) -> Unit,
     onSkip: (Inserat) -> Unit,
     onOpen: (Inserat) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Karten, deren Bewertung entschieden ist und die gerade hinausfliegen. Sie liegen vorn in
-    // [items], bis `onRate` sie entfernt; die Karte dahinter ist schon die oberste (#51).
+    // [items], bis `onBewerten` sie entfernt; die Karte dahinter ist schon die oberste (#51).
     val flying = remember { mutableStateSetOf<String>() }
     // Bewertet wird in Wischreihenfolge, auch wenn eine spätere Karte schneller landet.
     val folge = remember { BewertungsFolge<Inserat> { it.id } }
-    val currentOnRate by rememberUpdatedState(onRate)
+    val currentOnBewerten by rememberUpdatedState(onBewerten)
     // Verlässt eine fliegende Karte den Stapel (Refresh), darf sie die Bewertungen dahinter nicht
     // aufhalten.
     LaunchedEffect(items) {
         val ids = items.mapTo(HashSet<Any>()) { it.id }
         for ((item, label) in folge.retain(ids)) {
             flying -= item.id
-            currentOnRate(item, label)
+            currentOnBewerten(item, label)
         }
         flying.retainAll(ids)
     }
@@ -150,10 +150,10 @@ fun Kartenstapel(
                             StackItem(
                                 inserat = inserat,
                                 depth = depth,
-                                onRate = { label ->
+                                onBewerten = { label ->
                                     for ((item, itemLabel) in folge.finish(inserat, label)) {
                                         flying -= item.id
-                                        onRate(item, itemLabel)
+                                        onBewerten(item, itemLabel)
                                     }
                                 },
                                 onFlyOut = {
@@ -205,13 +205,13 @@ private class SwipeState {
 
 /**
  * Eine Karte im Stapel; nur die oberste ([depth] 0) lässt sich wischen und antippen. [onFlyOut]
- * meldet, dass die Bewertung entschieden ist und die Karte hinausfliegt, [onRate] kommt danach.
+ * meldet, dass die Bewertung entschieden ist und die Karte hinausfliegt, [onBewerten] kommt danach.
  */
 @Composable
 private fun StackItem(
     inserat: Inserat,
     depth: Int,
-    onRate: (Label) -> Unit,
+    onBewerten: (Label) -> Unit,
     onFlyOut: () -> Unit,
     onClick: () -> Unit,
 ) {
@@ -228,7 +228,7 @@ private fun StackItem(
     val flingVelocity = with(density) { FLING_VELOCITY.toPx() }
     val stackOffset = with(density) { 10.dp.toPx() }
     val swipe = remember { SwipeState() }
-    val currentOnRate by rememberUpdatedState(onRate)
+    val currentOnBewerten by rememberUpdatedState(onBewerten)
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnFlyOut by rememberUpdatedState(onFlyOut)
     // Gesten sind auf jeder Karte aktiv und prüfen erst beim Auslösen, ob sie oben liegt: Schaltete
@@ -266,7 +266,7 @@ private fun StackItem(
                 animate(x, target, velocity, tween(duration, easing = LinearEasing)) { value, _ -> swipe.offset = value }
             } finally {
                 // Auch wenn die Karte vorher den Stapel verlässt: Die Bewertung ist entschieden.
-                currentOnRate(if (direction > 0) Label.INTERESSANT else Label.UNINTERESSANT)
+                currentOnBewerten(if (direction > 0) Label.INTERESSANT else Label.UNINTERESSANT)
             }
         }
     }
@@ -489,12 +489,12 @@ private fun KartenstapelPreview() {
                         title = "Einfamilienhaus mit Garten – ruhige Lage, viel Platz für die Familie",
                         imageUrl = null, price = 450_000.0, zipCode = "91054", city = "Erlangen",
                         street = null, houseNumber = null, rooms = 5.0, livingArea = 140.0, plotArea = 600.0,
-                        provider = null, url = null, source = "Kleinanzeigen", createdAt = null,
+                        anbieter = null, url = null, source = "Kleinanzeigen", createdAt = null,
                         label = Label.UNBEWERTET, constructionYear = 1978, energyEfficiencyClass = "B",
                     )
                 },
                 moreAvailable = true,
-                onRate = { _, _ -> },
+                onBewerten = { _, _ -> },
                 onSkip = {},
                 onOpen = {},
             )

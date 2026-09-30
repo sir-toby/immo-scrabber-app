@@ -62,12 +62,12 @@ class KartenstapelViewModelTest {
         val vm = stapel(1..8)
         val events = events(vm)
 
-        vm.rate(vm.top, Label.INTERESSANT)
+        vm.bewerten(vm.top, Label.INTERESSANT)
         runCurrent()
 
         assertEquals(listOf("2", "3", "4", "5", "6", "7", "8"), vm.ids)
         assertEquals(listOf(LabelRequest(PropertyType.HOUSE, "1", Label.INTERESSANT)), repository.labelRequests)
-        assertEquals(Label.INTERESSANT, (events.single() as ListEvent.Rated).label)
+        assertEquals(Label.INTERESSANT, (events.single() as ListEvent.Bewertet).label)
     }
 
     @Test
@@ -79,7 +79,7 @@ class KartenstapelViewModelTest {
             repository.labelGate = gate
             repository.labelResult = networkError
 
-            vm.rate(vm.top, Label.UNINTERESSANT)
+            vm.bewerten(vm.top, Label.UNINTERESSANT)
             vm.skip(vm.top)
             assertEquals(listOf("3", "4", "5", "6", "7", "8", "2"), vm.ids)
 
@@ -87,18 +87,18 @@ class KartenstapelViewModelTest {
             runCurrent()
 
             assertEquals(listOf("1", "3", "4", "5", "6", "7", "8", "2"), vm.ids)
-            assertEquals(ListEvent.RatingFailed(vm.top, Label.UNINTERESSANT), events.last())
+            assertEquals(ListEvent.BewertungFehlgeschlagen(vm.top, Label.UNINTERESSANT), events.last())
         }
 
     @Test
     fun `Rückgängig schickt das alte Label und legt die Karte danach oben auf den Stapel`() = runTest(dispatcher) {
         val vm = stapel(1..8)
         val events = events(vm)
-        vm.rate(vm.top, Label.INTERESSANT)
+        vm.bewerten(vm.top, Label.INTERESSANT)
         vm.skip(vm.top)
         runCurrent()
 
-        vm.undo(events.last() as ListEvent.Rated)
+        vm.undo(events.last() as ListEvent.Bewertet)
         runCurrent()
 
         assertEquals(listOf("1", "3", "4", "5", "6", "7", "8", "2"), vm.ids)
@@ -110,11 +110,11 @@ class KartenstapelViewModelTest {
         repository.pages[Label.UNBEWERTET] = page(1..20)
         repository.nextPages[PageCursor("t20", "20")] = page(21..25)
         val vm = PropertyListViewModel(PropertyType.HOUSE, repository).also { runCurrent() }
-        repeat(15) { vm.rate(vm.top, Label.UNINTERESSANT) }
+        repeat(15) { vm.bewerten(vm.top, Label.UNINTERESSANT) }
         runCurrent()
         assertEquals(1, repository.pageRequests.size)
 
-        vm.rate(vm.top, Label.UNINTERESSANT)
+        vm.bewerten(vm.top, Label.UNINTERESSANT)
         runCurrent()
 
         assertEquals(PageCursor("t20", "20"), repository.pageRequests.last().cursor)
@@ -130,7 +130,7 @@ class KartenstapelViewModelTest {
         repository.nextPages[PageCursor("t20", "20")] = page(17..36)
         val vm = PropertyListViewModel(PropertyType.HOUSE, repository).also { runCurrent() }
 
-        repeat(18) { vm.rate(vm.top, Label.UNINTERESSANT) }
+        repeat(18) { vm.bewerten(vm.top, Label.UNINTERESSANT) }
         runCurrent()
 
         assertEquals((19..36).map(Int::toString), vm.ids)

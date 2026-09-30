@@ -96,7 +96,7 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
         ratedFavorite = stringResource(R.string.rated_favorite),
         ratedArchive = stringResource(R.string.rated_archive),
         undo = stringResource(R.string.undo),
-        ratingFailed = stringResource(R.string.rating_failed),
+        bewertungFehlgeschlagen = stringResource(R.string.rating_failed),
         retry = stringResource(R.string.retry),
         undoFailed = stringResource(R.string.undo_failed),
         noLink = stringResource(R.string.no_link),
@@ -236,7 +236,7 @@ private fun ListContent(
         state.filter == Filter.Neu -> Kartenstapel(
             items = pager.items,
             moreAvailable = !pager.endReached,
-            onRate = viewModel::rate,
+            onBewerten = viewModel::bewerten,
             onSkip = viewModel::skip,
             onOpen = viewModel::open,
         )
@@ -245,7 +245,7 @@ private fun ListContent(
             filter = state.filter,
             loadState = loadState,
             listState = listState,
-            onRate = viewModel::rate,
+            onBewerten = viewModel::bewerten,
             onOpen = viewModel::open,
             onLoadMore = viewModel::loadMore,
             onRetry = viewModel::retryLoading,
@@ -286,7 +286,7 @@ private fun Wischliste(
     filter: Filter,
     loadState: LoadState,
     listState: LazyListState,
-    onRate: (Inserat, Label) -> Unit,
+    onBewerten: (Inserat, Label) -> Unit,
     onOpen: (Inserat) -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
@@ -308,7 +308,7 @@ private fun Wischliste(
                 SwipeableInseratRow(
                     inserat = inserat,
                     filter = filter,
-                    onRate = { label -> onRate(inserat, label) },
+                    onBewerten = { label -> onBewerten(inserat, label) },
                     onClick = { onOpen(inserat) },
                 )
                 HorizontalDivider()
@@ -380,7 +380,7 @@ private class SnackbarTexts(
     val ratedFavorite: String,
     val ratedArchive: String,
     val undo: String,
-    val ratingFailed: String,
+    val bewertungFehlgeschlagen: String,
     val retry: String,
     val undoFailed: String,
     val noLink: String,
@@ -396,13 +396,13 @@ private suspend fun handleEvent(
     context: Context,
 ) {
     when (event) {
-        is ListEvent.Rated -> {
+        is ListEvent.Bewertet -> {
             val message = if (event.label == Label.INTERESSANT) texts.ratedFavorite else texts.ratedArchive
             val result = snackbarHostState.showSnackbar(message, texts.undo, duration = SnackbarDuration.Short)
             if (result == SnackbarResult.ActionPerformed) viewModel.undo(event)
         }
-        is ListEvent.RatingFailed -> {
-            val result = snackbarHostState.showSnackbar(texts.ratingFailed, texts.retry, duration = SnackbarDuration.Long)
+        is ListEvent.BewertungFehlgeschlagen -> {
+            val result = snackbarHostState.showSnackbar(texts.bewertungFehlgeschlagen, texts.retry, duration = SnackbarDuration.Long)
             if (result == SnackbarResult.ActionPerformed) viewModel.retry(event)
         }
         ListEvent.UndoFailed -> snackbarHostState.showSnackbar(texts.undoFailed)

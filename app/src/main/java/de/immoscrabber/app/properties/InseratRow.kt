@@ -178,7 +178,7 @@ private fun InseratRowPreview() {
                     title = "Einfamilienhaus mit Garten – ruhige Lage, viel Platz für die Familie",
                     imageUrl = null, price = 450_000.0, zipCode = "91054", city = "Erlangen",
                     street = null, houseNumber = null, rooms = 5.0, livingArea = 140.0, plotArea = 600.0,
-                    provider = null, url = null, source = "Kleinanzeigen", createdAt = null,
+                    anbieter = null, url = null, source = "Kleinanzeigen", createdAt = null,
                     label = Label.INTERESSANT, constructionYear = 1978, energyEfficiencyClass = "B",
                 ),
                 showLabel = true,

@@ -41,12 +41,12 @@ import de.immoscrabber.app.core.ui.theme.immoColors
 fun SwipeableInseratRow(
     inserat: Inserat,
     filter: Filter,
-    onRate: (Label) -> Unit,
+    onBewerten: (Label) -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val currentLabel by rememberUpdatedState(inserat.label)
-    val currentOnRate by rememberUpdatedState(onRate)
+    val currentOnBewerten by rememberUpdatedState(onBewerten)
     val state = rememberSwipeToDismissBoxState(
         // Ohne Seiteneffekt: kann mehrfach gerufen werden. `false` federt zurück.
         confirmValueChange = { value -> value.label?.let { it != currentLabel } ?: true },
@@ -54,7 +54,7 @@ fun SwipeableInseratRow(
 
     LaunchedEffect(state.currentValue) {
         val label = state.currentValue.label ?: return@LaunchedEffect
-        currentOnRate(label)
+        currentOnBewerten(label)
         if (filter == Filter.Alle) {
             // Die Zeile bleibt stehen: sichtbar zurückfedern.
             state.reset()

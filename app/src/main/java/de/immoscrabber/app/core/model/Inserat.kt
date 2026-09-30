@@ -22,7 +22,7 @@ data class Inserat(
     /** Grundstücksfläche in m² (`area_estate`). */
     val plotArea: Double?,
     /** Anbieter (Makler, Bank …), nur Häuser und Wohnungen. */
-    val provider: String?,
+    val anbieter: String?,
     /** Link zum Inserat bei der Quelle. */
     val url: String?,
     /** Quelle, also das Portal, z. B. „Kleinanzeigen“. */

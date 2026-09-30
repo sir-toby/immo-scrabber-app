@@ -32,7 +32,7 @@ enum class Filter(val label: Label?) {
 }
 
 /** Eine abgeschickte Bewertung, damit Rückgängig und Fehler sie zurückdrehen können. */
-class Rating internal constructor(
+class Bewertung internal constructor(
     internal val inserat: Inserat,
     internal val label: Label,
     internal val pager: InseratPager,
@@ -45,10 +45,10 @@ class Rating internal constructor(
 /** Einmalige Ereignisse des Tabs. */
 sealed interface ListEvent {
     /** „Als Favorit markiert“ / „Ins Archiv verschoben“ mit „Rückgängig“. */
-    data class Rated(val label: Label, val rating: Rating) : ListEvent
+    data class Bewertet(val label: Label, val bewertung: Bewertung) : ListEvent
 
     /** „Bewertung nicht gespeichert“ mit „Erneut versuchen“; die Zeile ist schon zurück. */
-    data class RatingFailed(val inserat: Inserat, val label: Label) : ListEvent
+    data class BewertungFehlgeschlagen(val inserat: Inserat, val label: Label) : ListEvent
 
     /** „Rückgängig nicht möglich“; das Inserat bleibt bewertet. */
     data object UndoFailed : ListEvent
@@ -88,7 +88,7 @@ class PropertyListViewModel(
     val events: Flow<ListEvent> = _events.receiveAsFlow()
 
     /** Nur die letzte Bewertung lässt sich rückgängig machen. */
-    private var lastRating: Rating? = null
+    private var letzteBewertung: Bewertung? = null
 
     private lateinit var pager: InseratPager
     private var pagerScope: CoroutineScope? = null
@@ -108,7 +108,7 @@ class PropertyListViewModel(
      * sofort heraus, sonst (unter „Alle“) wechselt nur das Label. Ein Wisch zum aktuellen Label
      * tut nichts.
      */
-    fun rate(inserat: Inserat, label: Label) {
+    fun bewerten(inserat: Inserat, label: Label) {
         if (inserat.label == label) return
         val filterLabel = _state.value.filter.label
         val leavesList = filterLabel != null && filterLabel != label
@@ -119,22 +119,22 @@ class PropertyListViewModel(
             target.update(inserat.id) { it.copy(label = label) }
             null
         }
-        val rating = Rating(inserat, label, target, removed)
-        lastRating = rating
-        _events.trySend(ListEvent.Rated(label, rating))
-        rating.job = viewModelScope.launch {
+        val bewertung = Bewertung(inserat, label, target, removed)
+        letzteBewertung = bewertung
+        _events.trySend(ListEvent.Bewertet(label, bewertung))
+        bewertung.job = viewModelScope.launch {
             if (repository.bewerten(type, inserat.id, label) is ApiResult.Failure) {
                 // Keine stillen Wiederholungen: zurückdrehen, melden, der Nutzer entscheidet.
-                rating.failed = true
-                if (lastRating === rating) lastRating = null
-                revert(rating)
-                _events.send(ListEvent.RatingFailed(inserat, label))
+                bewertung.failed = true
+                if (letzteBewertung === bewertung) letzteBewertung = null
+                revert(bewertung)
+                _events.send(ListEvent.BewertungFehlgeschlagen(inserat, label))
             }
         }
     }
 
     /** „Erneut versuchen“ nach einem gescheiterten PATCH. */
-    fun retry(failed: ListEvent.RatingFailed) = rate(failed.inserat, failed.label)
+    fun retry(failed: ListEvent.BewertungFehlgeschlagen) = bewerten(failed.inserat, failed.label)
 
     /**
      * „Rückgängig“ für die letzte Bewertung: setzt das alte Label per PATCH und holt erst danach
@@ -142,15 +142,15 @@ class PropertyListViewModel(
      * bewertet (Entscheidung #6). Wartet auf den ursprünglichen PATCH, damit beide nicht
      * gegeneinander laufen.
      */
-    fun undo(rated: ListEvent.Rated) {
-        val rating = rated.rating
-        if (rating !== lastRating) return
-        lastRating = null
+    fun undo(bewertet: ListEvent.Bewertet) {
+        val bewertung = bewertet.bewertung
+        if (bewertung !== letzteBewertung) return
+        letzteBewertung = null
         viewModelScope.launch {
-            rating.job?.join()
-            if (rating.failed) return@launch
-            when (repository.bewerten(type, rating.inserat.id, rating.inserat.label)) {
-                is ApiResult.Success -> revert(rating)
+            bewertung.job?.join()
+            if (bewertung.failed) return@launch
+            when (repository.bewerten(type, bewertung.inserat.id, bewertung.inserat.label)) {
+                is ApiResult.Success -> revert(bewertung)
                 is ApiResult.Failure -> _events.send(ListEvent.UndoFailed)
             }
         }
@@ -173,7 +173,7 @@ class PropertyListViewModel(
         viewModelScope.launch {
             when (val result = repository.alleNeuenBewerten(type, Label.UNINTERESSANT)) {
                 is ApiResult.Success -> {
-                    lastRating = null
+                    letzteBewertung = null
                     _events.send(ListEvent.BulkArchived(result.value))
                     if (_state.value.filter == Filter.Neu) pager.refresh()
                 }
@@ -197,12 +197,12 @@ class PropertyListViewModel(
     /** „Erneut versuchen“ nach einem Ladefehler (leere Ansicht oder Listenende). */
     fun retryLoading() = pager.retry()
 
-    private fun revert(rating: Rating) {
-        if (rating.removed != null) {
-            rating.pager.restore(rating.removed)
+    private fun revert(bewertung: Bewertung) {
+        if (bewertung.removed != null) {
+            bewertung.pager.restore(bewertung.removed)
         } else {
-            rating.pager.update(rating.inserat.id) {
-                if (it.label == rating.label) it.copy(label = rating.inserat.label) else it
+            bewertung.pager.update(bewertung.inserat.id) {
+                if (it.label == bewertung.label) it.copy(label = bewertung.inserat.label) else it
             }
         }
     }
