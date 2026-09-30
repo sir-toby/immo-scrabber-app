@@ -1,5 +1,6 @@
 package de.immoscrabber.app.properties
 
+import de.immoscrabber.app.core.model.PropertyType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -30,6 +31,44 @@ class InseratFormatTest {
         val haus = inserat("1", rooms = 4.5, plotArea = 1_200.4)
         assertEquals("4,5 Zi · 1.200 m² Grundst.", formatFacts(haus))
         assertEquals("", formatFacts(inserat("2")))
+    }
+
+    @Test
+    fun `Eckdaten einer Wohnung ohne Grundstück, Fläche ohne Zusatz`() {
+        val wohnung = inserat(
+            "1", type = PropertyType.FLAT, rooms = 3.0, livingArea = 85.0, plotArea = 400.0, constructionYear = 1995,
+        )
+        assertEquals("3 Zi · 85 m² · Bj. 1995", formatFacts(wohnung))
+    }
+
+    @Test
+    fun `fehlende Eckdaten einer Wohnung fallen weg`() {
+        assertEquals("2,5 Zi · Bj. 1995", formatFacts(inserat("1", type = PropertyType.FLAT, rooms = 2.5, constructionYear = 1995)))
+        assertEquals("1.050 m²", formatFacts(inserat("2", type = PropertyType.FLAT, livingArea = 1_050.0)))
+        assertEquals("", formatFacts(inserat("3", type = PropertyType.FLAT)))
+    }
+
+    @Test
+    fun `Eckdaten eines Grundstücks mit Preis pro m²`() {
+        val grundstueck = inserat("1", type = PropertyType.SITE, price = 250_000.0, plotArea = 600.0)
+        assertEquals("600 m² · 417 €/m²", formatFacts(grundstueck))
+    }
+
+    @Test
+    fun `Grundstück zeigt nur Fläche und Preis pro m², Zimmer und Baujahr nie`() {
+        val grundstueck = inserat(
+            "1", type = PropertyType.SITE, price = 1_500_000.0, plotArea = 1_000.0,
+            rooms = 3.0, livingArea = 120.0, constructionYear = 2000,
+        )
+        assertEquals("1.000 m² · 1.500 €/m²", formatFacts(grundstueck))
+    }
+
+    @Test
+    fun `Preis pro m² nur mit Preis und Fläche`() {
+        assertEquals("600 m²", formatFacts(inserat("1", type = PropertyType.SITE, plotArea = 600.0)))
+        assertEquals("600 m²", formatFacts(inserat("2", type = PropertyType.SITE, price = 0.0, plotArea = 600.0)))
+        assertEquals("", formatFacts(inserat("3", type = PropertyType.SITE, price = 250_000.0)))
+        assertEquals("", formatFacts(inserat("4", type = PropertyType.SITE, price = 250_000.0, plotArea = 0.0)))
     }
 
     @Test

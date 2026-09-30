@@ -1,6 +1,7 @@
 package de.immoscrabber.app.properties
 
 import de.immoscrabber.app.core.model.Inserat
+import de.immoscrabber.app.core.model.PropertyType
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -14,18 +15,40 @@ fun formatPrice(price: Double?): String =
     if (price == null || price <= 0.0) "Preis auf Anfrage" else "${formatNumber(price, 0)} €"
 
 /**
- * Eckdaten, getrennt mit „·“; fehlende Werte fallen weg. Format für Häuser:
- * `5 Zi · 140 m² Wfl. · 600 m² Grundst. · Bj. 1978`.
- *
- * Wohnungen und Grundstücke bekommen ihr eigenes Format im Ticket ihrer Tabs; bis dahin gilt
- * auch für sie das Hausformat (bei ihnen fehlen die unpassenden Werte ohnehin).
+ * Eckdaten je Immobilientyp, getrennt mit „·“; fehlende Werte fallen weg:
+ * - Haus: `5 Zi · 140 m² Wfl. · 600 m² Grundst. · Bj. 1978`
+ * - Wohnung: `3 Zi · 85 m² · Bj. 1995` (Wohnfläche)
+ * - Grundstück: `600 m² · 417 €/m²` (Grundstücksfläche; €/m² nur mit Preis und Fläche)
  */
-fun formatFacts(inserat: Inserat): String = listOfNotNull(
-    inserat.rooms?.let { "${formatNumber(it, 1)} Zi" },
-    inserat.livingArea?.let { "${formatNumber(it, 0)} m² Wfl." },
-    inserat.plotArea?.let { "${formatNumber(it, 0)} m² Grundst." },
-    inserat.constructionYear?.let { "Bj. $it" },
-).joinToString(SEPARATOR)
+fun formatFacts(inserat: Inserat): String = when (inserat.propertyType) {
+    PropertyType.HOUSE -> listOfNotNull(
+        rooms(inserat),
+        inserat.livingArea.positive()?.let { "${area(it)} Wfl." },
+        inserat.plotArea.positive()?.let { "${area(it)} Grundst." },
+        constructionYear(inserat),
+    )
+    PropertyType.FLAT -> listOfNotNull(
+        rooms(inserat),
+        inserat.livingArea.positive()?.let(::area),
+        constructionYear(inserat),
+    )
+    PropertyType.SITE -> listOfNotNull(
+        inserat.plotArea.positive()?.let(::area),
+        pricePerSquareMeter(inserat.price, inserat.plotArea)?.let { "${formatNumber(it, 0)} €/m²" },
+    )
+}.joinToString(SEPARATOR)
+
+private fun rooms(inserat: Inserat) = inserat.rooms?.let { "${formatNumber(it, 1)} Zi" }
+
+private fun constructionYear(inserat: Inserat) = inserat.constructionYear?.let { "Bj. $it" }
+
+private fun area(squareMeters: Double) = "${formatNumber(squareMeters, 0)} m²"
+
+/** Eine Fläche von 0 m² ist ein fehlender Wert und fällt weg. */
+private fun Double?.positive(): Double? = this?.takeIf { it > 0.0 }
+
+private fun pricePerSquareMeter(price: Double?, area: Double?): Double? =
+    if (price == null || area == null || price <= 0.0 || area <= 0.0) null else price / area
 
 /** „PLZ Ort“ (Karte im Kartenstapel); fehlende Teile fallen weg. */
 fun formatPlace(inserat: Inserat): String = listOfNotNull(inserat.zipCode, inserat.city)

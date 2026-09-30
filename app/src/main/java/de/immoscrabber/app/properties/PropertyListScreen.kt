@@ -90,8 +90,8 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val texts = SnackbarTexts(
-        ratedFavorite = stringResource(R.string.rated_favorite),
-        ratedArchive = stringResource(R.string.rated_archive),
+        bewertetFavorit = stringResource(R.string.rated_favorite),
+        bewertetArchiv = stringResource(R.string.rated_archive),
         undo = stringResource(R.string.undo),
         bewertungFehlgeschlagen = stringResource(R.string.rating_failed),
         retry = stringResource(R.string.retry),
@@ -364,8 +364,8 @@ private fun MessageState(
 }
 
 private class SnackbarTexts(
-    val ratedFavorite: String,
-    val ratedArchive: String,
+    val bewertetFavorit: String,
+    val bewertetArchiv: String,
     val undo: String,
     val bewertungFehlgeschlagen: String,
     val retry: String,
@@ -384,7 +384,7 @@ private suspend fun handleEvent(
 ) {
     when (event) {
         is ListEvent.Bewertet -> {
-            val message = if (event.label == Label.INTERESSANT) texts.ratedFavorite else texts.ratedArchive
+            val message = if (event.label == Label.INTERESSANT) texts.bewertetFavorit else texts.bewertetArchiv
             val result = snackbarHostState.showSnackbar(message, texts.undo, duration = SnackbarDuration.Short)
             if (result == SnackbarResult.ActionPerformed) viewModel.undo(event)
         }
