@@ -64,6 +64,29 @@ class InseratFormatTest {
     }
 
     @Test
+    fun `Preis pro m² kaufmännisch gerundet`() {
+        // 249.900 € / 600 m² = 416,5 €/m²; die Standardrundung (HALF_EVEN) ergäbe „416“.
+        val grundstueck = inserat("1", type = PropertyType.SITE, price = 249_900.0, plotArea = 600.0)
+        assertEquals("600 m² · 417 €/m²", formatFacts(grundstueck))
+    }
+
+    @Test
+    fun `Preis, Fläche und Zimmer ebenfalls kaufmännisch gerundet`() {
+        assertEquals("999 €", formatPrice(998.5))
+        assertEquals("85 m²", formatFacts(inserat("1", type = PropertyType.FLAT, livingArea = 84.5)))
+        assertEquals("2,3 Zi", formatFacts(inserat("2", type = PropertyType.FLAT, rooms = 2.25)))
+    }
+
+    @Test
+    fun `Wohnfläche von 0 m² fällt bei Haus und Wohnung weg`() {
+        assertEquals("5 Zi · Bj. 1978", formatFacts(inserat("1", rooms = 5.0, livingArea = 0.0, constructionYear = 1978)))
+        assertEquals(
+            "3 Zi · Bj. 1995",
+            formatFacts(inserat("2", type = PropertyType.FLAT, rooms = 3.0, livingArea = 0.0, constructionYear = 1995)),
+        )
+    }
+
+    @Test
     fun `Preis pro m² nur mit Preis und Fläche`() {
         assertEquals("600 m²", formatFacts(inserat("1", type = PropertyType.SITE, plotArea = 600.0)))
         assertEquals("600 m²", formatFacts(inserat("2", type = PropertyType.SITE, price = 0.0, plotArea = 600.0)))
