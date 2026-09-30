@@ -16,7 +16,14 @@ val appVersion = AppVersion.fromTag(
         .orNull,
 )
 
-val prodBaseUrl: String = providers.gradleProperty("immo.prodBaseUrl").get()
+// Voreingestellter Prod-Server. Bewusst nicht im Repo: Umgebungsvariable IMMO_PROD_BASE_URL
+// (CI-Secret) oder lokal `immo.prodBaseUrl` in local.properties. Fehlt sie, bleibt das Server-Feld
+// im Login leer; der Release-Build bricht dann ab.
+val prodBaseUrl: String = providers.environmentVariable("IMMO_PROD_BASE_URL").orNull?.takeIf(String::isNotBlank)
+    ?: rootProject.file("local.properties").takeIf { it.exists() }?.let { file ->
+        java.util.Properties().apply { file.inputStream().use(::load) }.getProperty("immo.prodBaseUrl")
+    }?.takeIf(String::isNotBlank)
+    ?: ""
 
 // Release-Signierung aus der Umgebung (CI-Secrets). Der Keystore kommt Base64-kodiert.
 val releaseSigningEnv = listOf(
@@ -101,7 +108,14 @@ kotlin {
 // Ohne Signier-Secrets bricht der Release-Build mit klarer Meldung ab (Debug bleibt unberührt).
 val verifyReleaseSigning by tasks.registering {
     val missing = missingReleaseSigningEnv.toList()
+    val prodUrlMissing = prodBaseUrl.isEmpty()
     doLast {
+        if (prodUrlMissing) {
+            throw GradleException(
+                "Prod-Server nicht konfiguriert: Umgebungsvariable IMMO_PROD_BASE_URL fehlt " +
+                    "(oder immo.prodBaseUrl in local.properties).",
+            )
+        }
         if (missing.isNotEmpty()) {
             throw GradleException(
                 "Release-Signierung nicht konfiguriert: Umgebungsvariable(n) ${missing.joinToString()} fehlen. " +

@@ -33,7 +33,7 @@ private const val TOKEN_FILE = "session_tokens.pb"
 class AppContainer(applicationContext: Context) {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    /** Voreingestellter Server (Prod) aus der Gradle-Property `immo.prodBaseUrl`. */
+    /** Voreingestellter Server (Prod) aus `IMMO_PROD_BASE_URL` bzw. `local.properties`; leer, wenn nicht gesetzt. */
     val prodBaseUrl: String = BuildConfig.PROD_BASE_URL
 
     /** Debug-Build: `http://` für das lokale Backend (10.0.2.2, localhost) erlaubt. */
