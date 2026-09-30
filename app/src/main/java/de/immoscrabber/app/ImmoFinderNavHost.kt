@@ -16,27 +16,26 @@ import de.immoscrabber.app.core.AppContainer
 import de.immoscrabber.app.core.session.SessionState
 import de.immoscrabber.app.login.LoginScreen
 import de.immoscrabber.app.login.LoginViewModel
-import de.immoscrabber.app.properties.HaeuserPlaceholderScreen
 import kotlinx.serialization.Serializable
 
 /** Login als Vollbild ohne Bottom Navigation. */
 @Serializable
 data object LoginRoute
 
-/** Tab „Häuser“ (vorläufig ein Platzhalter; das Tabs-Ticket baut die Bottom Navigation). */
+/** Hauptansicht mit Bottom Navigation ([MainShell]). */
 @Serializable
-data object HaeuserRoute
+data object MainRoute
 
 /**
  * Wird erst gezeigt, wenn der Sitzungszustand feststeht (vorher hält der Splash). Folgt dem
- * [SessionState]: angemeldet → „Häuser“, abgemeldet (Logout, Sitzungsende) → Login, jeweils
+ * [SessionState]: angemeldet → Hauptansicht, abgemeldet (Logout, Sitzungsende) → Login, jeweils
  * mit geleertem Back-Stack.
  */
 @Composable
 fun ImmoFinderNavHost(container: AppContainer, initialState: SessionState) {
     val navController = rememberNavController()
     val sessionState by container.sessionManager.state.collectAsStateWithLifecycle()
-    val startDestination: Any = if (initialState is SessionState.LoggedIn) HaeuserRoute else LoginRoute
+    val startDestination: Any = if (initialState is SessionState.LoggedIn) MainRoute else LoginRoute
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable<LoginRoute> {
@@ -49,12 +48,16 @@ fun ImmoFinderNavHost(container: AppContainer, initialState: SessionState) {
             )
             LoginScreen(viewModel)
         }
-        composable<HaeuserRoute> { HaeuserPlaceholderScreen() }
+        composable<MainRoute> {
+            // Beim Abmelden kann die Sitzung kurz vor dem Wechsel zum Login schon weg sein.
+            val session = container.session ?: return@composable
+            MainShell(session)
+        }
     }
 
     LaunchedEffect(sessionState) {
         when (sessionState) {
-            is SessionState.LoggedIn -> navController.navigateClearing(HaeuserRoute)
+            is SessionState.LoggedIn -> navController.navigateClearing(MainRoute)
             is SessionState.LoggedOut -> navController.navigateClearing(LoginRoute)
             SessionState.Loading -> Unit
         }

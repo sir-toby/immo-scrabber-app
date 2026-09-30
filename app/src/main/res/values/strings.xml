@@ -21,7 +21,36 @@
     <string name="login_error_unexpected">Unerwarteter Fehler</string>
     <string name="login_session_expired">Sitzung abgelaufen, bitte neu anmelden</string>
 
-    <!-- Vorläufiger Platzhalter, bis die Tabs kommen -->
-    <string name="haeuser_title">Häuser</string>
-    <string name="haeuser_placeholder">Hier entstehen die Inserate.</string>
+    <!-- Bottom Navigation (Entscheidung #10) -->
+    <string name="tab_houses">Häuser</string>
+    <string name="tab_flats">Wohnungen</string>
+    <string name="tab_sites">Grundstücke</string>
+    <string name="tab_settings">Einstellungen</string>
+    <string name="tab_placeholder">Folgt in Kürze.</string>
+
+    <!-- Tabs je Immobilientyp (Entscheidung #6); %1$s ist der Typ im Plural -->
+    <string name="filter_new">Neu</string>
+    <string name="filter_favorites">Favoriten</string>
+    <string name="filter_all">Alle</string>
+    <string name="filter_archive">Archiv</string>
+    <string name="empty_new_title">Alles bewertet</string>
+    <string name="empty_new_text">Neue %1$s erscheinen hier, sobald sie gefunden werden.</string>
+    <string name="empty_favorites">Noch keine Favoriten. Wische in ‚Neu‘ nach rechts.</string>
+    <string name="empty_archive">Archiv ist leer</string>
+    <string name="empty_all">Keine %1$s gefunden</string>
+    <string name="load_failed">Konnte %1$s nicht laden</string>
+    <string name="no_search_profile_title">Noch kein Suchprofil</string>
+    <string name="no_search_profile_text">Lege in den Einstellungen ein Suchprofil an, damit hier Inserate erscheinen.</string>
+    <string name="retry">Erneut versuchen</string>
+    <string name="badge_favorite">Favorit</string>
+    <string name="badge_archive">Archiv</string>
+    <string name="swipe_favorite">Favorit</string>
+    <string name="swipe_archive">Archiv</string>
+    <string name="rated_favorite">Als Favorit markiert</string>
+    <string name="rated_archive">Ins Archiv verschoben</string>
+    <string name="undo">Rückgängig</string>
+    <string name="rating_failed">Bewertung nicht gespeichert</string>
+    <string name="undo_failed">Rückgängig nicht möglich</string>
+    <string name="no_link">Kein Link zum Inserat</string>
+    <string name="link_failed">Inserat lässt sich nicht öffnen</string>
 </resources>

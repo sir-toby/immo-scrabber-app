@@ -1,5 +1,7 @@
 package de.immoscrabber.app.core.session
 
+import de.immoscrabber.app.core.data.ApiInseratRepository
+import de.immoscrabber.app.core.data.InseratRepository
 import de.immoscrabber.app.core.network.ApiClientFactory
 import de.immoscrabber.app.core.network.ApiError
 import de.immoscrabber.app.core.network.ApiResult
@@ -57,6 +59,9 @@ class Session internal constructor(
     val scope: CoroutineScope,
     internal val tokens: SessionTokens,
 ) {
+    /** Inserate dieser Sitzung; ihre späteren Caches verschwinden mit der Sitzung. */
+    val inserate: InseratRepository by lazy { ApiInseratRepository(api) }
+
     internal fun close() {
         tokens.close()
         scope.cancel()
