@@ -64,9 +64,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import de.immoscrabber.app.R
 import de.immoscrabber.app.core.model.Inserat
@@ -98,6 +96,13 @@ private const val STAMP_ROTATION = 15f
 val StackFooterHeight = 48.dp
 
 /**
+ * Fester Platz unter der Karte für die Snackbar (einzeilig 48 dp plus 12 dp Rand oben und unten),
+ * damit sie Titel, Ort und Eckdaten nie verdeckt (#52). Er bleibt immer frei, so ändert die Karte
+ * ihre Größe nicht, wenn eine Snackbar kommt oder geht.
+ */
+private val SnackbarSpace = 72.dp
+
+/**
  * Kartenstapel für den Filter „Neu“ (Entscheidungen #3, #6): oben die erste Karte der geladenen
  * Liste, dahinter zwei weitere. Wischen rechts = interessant, links = uninteressant; beim Ziehen
  * zeigt ein Stempel die Richtung, sonst keine Richtungshinweise. Darunter „N übrig“ und
@@ -113,17 +118,17 @@ fun Kartenstapel(
     onSkip: (Inserat) -> Unit,
     onOpen: (Inserat) -> Unit,
     modifier: Modifier = Modifier,
-    snackbarSpace: Dp = 0.dp,
 ) {
     // Karten, deren Bewertung entschieden ist und die gerade hinausfliegen. Sie liegen vorn in
     // [items], bis `onRate` sie entfernt; die Karte dahinter ist schon die oberste (#51).
     val flying = remember { mutableStateSetOf<String>() }
+    // Bewertet wird in Wischreihenfolge, auch wenn eine spätere Karte schneller landet.
+    val folge = remember { BewertungsFolge<Inserat>() }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val height = maxHeight
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             Column(Modifier.height(height).padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
-                // Unten Platz für die Snackbar, damit sie nichts von der Karte verdeckt (#52).
-                Box(Modifier.fillMaxWidth().weight(1f).padding(bottom = max(20.dp, snackbarSpace))) {
+                Box(Modifier.fillMaxWidth().weight(1f).padding(bottom = SnackbarSpace)) {
                     val visible = items.take(VISIBLE_CARDS + flying.size)
                     val flyingAhead = visible.runningFold(0) { n, item -> if (item.id in flying) n + 1 else n }
                     // Von hinten nach vorn zeichnen; der Schlüssel hält Zustand und Animation je Karte.
@@ -135,10 +140,15 @@ fun Kartenstapel(
                                 inserat = inserat,
                                 depth = depth,
                                 onRate = { label ->
-                                    flying -= inserat.id
-                                    onRate(inserat, label)
+                                    for ((item, itemLabel) in folge.finish(inserat, label)) {
+                                        flying -= item.id
+                                        onRate(item, itemLabel)
+                                    }
                                 },
-                                onFlyOut = { flying += inserat.id },
+                                onFlyOut = {
+                                    flying += inserat.id
+                                    folge.start(inserat)
+                                },
                                 onClick = { onOpen(inserat) },
                             )
                         }
@@ -278,7 +288,7 @@ private fun StackItem(
                     swipe.offset += ende.restDx
                     if (!swipe.dragging) settle(velocity = 0f)
                 }
-                KartenGeste.Ende.Tippen -> Unit
+                KartenGeste.Ende.Tippen, KartenGeste.Ende.Verworfen -> Unit
             }
         }
     }
@@ -315,7 +325,9 @@ private fun StackItem(
                             // Ein neuer Griff fängt eine zurückfedernde Karte an ihrer Stelle auf.
                             onDragStarted = {
                                 swipe.dragging = true
-                                if (currentIsTop) swipe.settle?.cancel()
+                                // Kommt verspätet über einen Kanal; rastet die Karte schon ein
+                                // (das Loslassen war schneller), bleibt das Einrasten stehen.
+                                if (currentIsTop && !swipe.flyingOut) swipe.settle?.cancel()
                             },
                             // Kommt auch bei abgebrochener Geste (dann mit Geschwindigkeit 0).
                             onDragStopped = { velocity ->
@@ -336,8 +348,8 @@ private fun StackItem(
 
 /**
  * Beobachtet jede Berührung im Initial-Durchlauf, also vor `clickable` weiter innen, und meldet
- * beim Loslassen, was sie war ([KartenGeste]). Einen [KartenGeste.Ende.Sprung] verbraucht sie:
- * `clickable` bricht ab, statt das Inserat zu öffnen. Sonst verbraucht sie nichts, Tippen und
+ * beim Loslassen, was sie war ([KartenGeste]). [KartenGeste.Ende.Sprung] und
+ * [KartenGeste.Ende.Verworfen] verbraucht sie: `clickable` bricht ab, statt das Inserat zu öffnen. Sonst verbraucht sie nichts, Tippen und
  * Ziehen behalten ihr Verhalten.
  */
 private suspend fun PointerInputScope.observeRelease(onRelease: (KartenGeste.Ende) -> Unit) {
@@ -349,7 +361,7 @@ private suspend fun PointerInputScope.observeRelease(onRelease: (KartenGeste.End
             val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
             if (change.changedToUpIgnoreConsumed()) {
                 val ende = geste.up(change.position, change.uptimeMillis, step = change.positionChangeIgnoreConsumed())
-                if (ende is KartenGeste.Ende.Sprung) change.consume()
+                if (ende is KartenGeste.Ende.Sprung || ende is KartenGeste.Ende.Verworfen) change.consume()
                 onRelease(ende)
                 break
             }

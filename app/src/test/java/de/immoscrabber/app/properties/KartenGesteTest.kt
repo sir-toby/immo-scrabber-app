@@ -45,6 +45,21 @@ class KartenGesteTest {
     }
 
     @Test
+    fun `senkrechtes Ziehen ist weder Tippen noch Wisch`() {
+        val geste = KartenGeste(slop)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        geste.move(Offset(505f, 800f))
+        assertEquals(KartenGeste.Ende.Verworfen, geste.up(Offset(510f, 900f), uptimeMillis = 200, step = Offset(5f, 100f)))
+    }
+
+    @Test
+    fun `senkrechter Sprung ohne Bewegung dazwischen ist kein Tippen`() {
+        val geste = KartenGeste(slop)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        assertEquals(KartenGeste.Ende.Verworfen, geste.up(Offset(505f, 1_000f), uptimeMillis = 150))
+    }
+
+    @Test
     fun `mit Bewegung über die Slop hinaus übernimmt das Ziehen`() {
         val geste = KartenGeste(slop)
         geste.down(Offset(100f, 700f), uptimeMillis = 0)
