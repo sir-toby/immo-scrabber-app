@@ -3,6 +3,7 @@ package de.immoscrabber.app.properties
 import android.content.ActivityNotFoundException
 import android.content.Context
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,9 +51,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -122,8 +126,12 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
         }
     }
 
-    // Über dem Kartenstapel sitzt die Snackbar oberhalb von „Überspringen“ (Entscheidung #3).
+    // Über dem Kartenstapel sitzt die Snackbar oberhalb von „Überspringen“ (Entscheidung #3), und
+    // der Stapel macht ihr unten Platz, damit sie Titel, Ort und Eckdaten nicht verdeckt (#52).
     val stackVisible = state.filter == Filter.Neu && state.pager.items.isNotEmpty()
+    val density = LocalDensity.current
+    var snackbarHeight by remember { mutableStateOf(0.dp) }
+    val snackbarSpace by animateDpAsState(if (stackVisible) snackbarHeight else 0.dp, label = "snackbarSpace")
     Scaffold(
         topBar = {
             TopAppBar(
@@ -134,7 +142,10 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
         snackbarHost = {
             SnackbarHost(
                 snackbarHostState,
-                Modifier.padding(bottom = if (stackVisible) StackFooterHeight else 0.dp),
+                Modifier
+                    .padding(bottom = if (stackVisible) StackFooterHeight else 0.dp)
+                    // Ohne Snackbar ist der Host 0 hoch; beim Ersetzen liegen alte und neue übereinander.
+                    .onSizeChanged { snackbarHeight = with(density) { it.height.toDp() } },
             )
         },
     ) { innerPadding ->
@@ -147,7 +158,7 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                ListContent(state, typeName, listState, viewModel)
+                ListContent(state, typeName, listState, viewModel, snackbarSpace = { snackbarSpace })
             }
         }
     }
@@ -201,6 +212,7 @@ private fun ListContent(
     typeName: String,
     listState: LazyListState,
     viewModel: PropertyListViewModel,
+    snackbarSpace: () -> Dp,
 ) {
     val pager = state.pager
     val loadState = pager.loadState
@@ -238,6 +250,7 @@ private fun ListContent(
             onRate = viewModel::rate,
             onSkip = viewModel::skip,
             onOpen = viewModel::open,
+            snackbarSpace = snackbarSpace(),
         )
         else -> Wischliste(
             items = pager.items,
