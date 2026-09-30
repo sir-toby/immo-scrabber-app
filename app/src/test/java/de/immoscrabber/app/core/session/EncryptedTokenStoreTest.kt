@@ -10,6 +10,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -38,6 +40,16 @@ class EncryptedTokenStoreTest {
         return EncryptedTokenStore.create(file, aead, scope)
     }
 
+    /**
+     * Beendet alle Store-Instanzen wie ein App-Neustart und wartet darauf: DataStore gibt die
+     * Datei erst frei, wenn sein Scope fertig ist; sonst meldet eine neue Instanz auf derselben
+     * Datei „mehrere DataStores aktiv“ (flakig in CI).
+     */
+    private suspend fun restart() {
+        scopes.forEach { it.coroutineContext.job.cancelAndJoin() }
+        scopes.clear()
+    }
+
     private val pair = TokenPair("access-geheim", "refresh-geheim")
 
     @Test
@@ -52,7 +64,7 @@ class EncryptedTokenStoreTest {
         val file = File(tmp.root, "tokens.pb")
         val aead = newAead()
         store(file) { aead }.save(pair)
-        scopes.forEach { it.cancel() }
+        restart()
 
         assertEquals(StoredTokens.Present(pair), store(file) { aead }.read())
         val raw = file.readBytes().decodeToString()
@@ -77,7 +89,7 @@ class EncryptedTokenStoreTest {
         val file = File(tmp.root, "tokens.pb")
         val original = newAead()
         store(file) { original }.save(pair)
-        scopes.forEach { it.cancel() }
+        restart()
 
         val other = newAead()
         assertEquals(StoredTokens.Unreadable, store(file) { other }.read())
@@ -88,7 +100,7 @@ class EncryptedTokenStoreTest {
         val file = File(tmp.root, "tokens.pb")
         val aead = newAead()
         store(file) { aead }.save(pair)
-        scopes.forEach { it.cancel() }
+        restart()
 
         assertEquals(StoredTokens.Unreadable, store(file) { error("Keystore kaputt") }.read())
     }
