@@ -1,0 +1,53 @@
+[
+  {
+    "city": "Erlangen",
+    "latitude": "49.5897",
+    "longitude": "11.0120",
+    "maxConstructionYear": null,
+    "minArea": null,
+    "minConstructionYear": null,
+    "minRooms": null,
+    "priceLimit": null,
+    "property_type": "HOUSE",
+    "provider_blacklist": [],
+    "radius": 20,
+    "source_blacklist": [],
+    "userId": "bc2f67fb-53c9-4eab-8a06-41bdf1441be9",
+    "uuid": "11f1315e-7c60-4575-8de2-f2f88a0aa89b",
+    "zipCode": "91054"
+  },
+  {
+    "city": "Erlangen",
+    "latitude": "49.5897",
+    "longitude": "11.0120",
+    "maxConstructionYear": null,
+    "minArea": null,
+    "minConstructionYear": null,
+    "minRooms": null,
+    "priceLimit": null,
+    "property_type": "FLAT",
+    "provider_blacklist": [],
+    "radius": 20,
+    "source_blacklist": [],
+    "userId": "bc2f67fb-53c9-4eab-8a06-41bdf1441be9",
+    "uuid": "d5135abb-cbda-42f5-9d0d-519fb47c9ebb",
+    "zipCode": "91054"
+  },
+  {
+    "city": "Erlangen",
+    "latitude": "49.5897",
+    "longitude": "11.0120",
+    "maxConstructionYear": null,
+    "minArea": null,
+    "minConstructionYear": null,
+    "minRooms": null,
+    "priceLimit": null,
+    "property_type": "SITE",
+    "provider_blacklist": [],
+    "radius": 20,
+    "source_blacklist": [],
+    "userId": "bc2f67fb-53c9-4eab-8a06-41bdf1441be9",
+    "uuid": "568ccdd6-c6bc-4ed7-b25b-48a062de29c7",
+    "zipCode": "91054"
+  }
+]

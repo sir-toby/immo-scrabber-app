@@ -1,0 +1,29 @@
+{
+  "flats": [],
+  "houses": [
+    {
+      "area_building": 161.0,
+      "area_estate": 723.0,
+      "constructionYear": 2020,
+      "created_at": "2026-09-25T12:16:10.177763",
+      "energyEfficiencyClass": null,
+      "id": "a4283a64-5165-4343-84ab-b129244d570c",
+      "image": "/relative/path.jpg",
+      "label": "interessant",
+      "location": {
+        "city": "Erlangen",
+        "number": null,
+        "street": null,
+        "zipCode": "91054"
+      },
+      "price": 437000.0,
+      "property_type": "house",
+      "provider": "VR Bank",
+      "rooms": 4,
+      "source": "Kleinanzeigen",
+      "title": "Einfamilienhaus mit Garten Nr. 40 – ruhige Lage, viel Platz für die Familie",
+      "url": "https://example.com/haus/39"
+    }
+  ],
+  "sites": []
+}
