@@ -2,6 +2,7 @@ package de.immoscrabber.app.properties
 
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.PropertyType
+import java.math.RoundingMode
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -86,4 +87,6 @@ private fun formatNumber(value: Double, maxFractionDigits: Int): String =
     NumberFormat.getNumberInstance(Locale.GERMANY).apply {
         maximumFractionDigits = maxFractionDigits
         isGroupingUsed = true
+        // Kaufmännisch (416,5 → 417), nicht die Standardrundung HALF_EVEN.
+        roundingMode = RoundingMode.HALF_UP
     }.format(value)

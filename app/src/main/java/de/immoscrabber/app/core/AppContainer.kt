@@ -5,6 +5,7 @@ import androidx.datastore.dataStoreFile
 import androidx.datastore.preferences.preferencesDataStore
 import de.immoscrabber.app.BuildConfig
 import de.immoscrabber.app.core.network.ApiClientFactory
+import de.immoscrabber.app.core.network.createImageHttpClient
 import de.immoscrabber.app.core.session.DataStoreSessionPrefsStore
 import de.immoscrabber.app.core.session.EncryptedTokenStore
 import de.immoscrabber.app.core.session.Session
@@ -15,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
-import java.util.concurrent.TimeUnit
 
 /** Unverschlüsselter Speicher für Server und Username (Datei `datastore/session.preferences_pb`). */
 private val Context.sessionPrefsDataStore by preferencesDataStore(name = "session")
@@ -41,16 +41,8 @@ class AppContainer(applicationContext: Context) {
 
     val apiClientFactory: ApiClientFactory = ApiClientFactory()
 
-    /**
-     * Eigener OkHttp-Client für Anbieterbilder (Coil), ohne Auth-Interceptor: Tokens gehen nie
-     * an fremde Server (Entscheidung #10). Sitzungsunabhängig, Bilder cacht Coil auf der Platte.
-     */
-    val imageHttpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .build()
-    }
+    /** OkHttp-Client für Anbieterbilder (Coil), sitzungsunabhängig; Bilder cacht Coil auf der Platte. */
+    val imageHttpClient: OkHttpClient by lazy { createImageHttpClient() }
 
     private val aead by lazy { SessionCrypto.keystoreAead(applicationContext) }
 
