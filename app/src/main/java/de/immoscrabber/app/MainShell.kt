@@ -29,7 +29,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.session.Session
-import de.immoscrabber.app.properties.PropertyPlaceholderScreen
 import de.immoscrabber.app.properties.PropertyTab
 import de.immoscrabber.app.properties.icon
 import de.immoscrabber.app.properties.pluralName
@@ -104,8 +103,8 @@ fun MainShell(session: Session) {
             exitTransition = { ExitTransition.None },
         ) {
             composable<HaeuserTab> { PropertyTab(PropertyType.HOUSE, session.inserate) }
-            composable<WohnungenTab> { PropertyPlaceholderScreen(PropertyType.FLAT) }
-            composable<GrundstueckeTab> { PropertyPlaceholderScreen(PropertyType.SITE) }
+            composable<WohnungenTab> { PropertyTab(PropertyType.FLAT, session.inserate) }
+            composable<GrundstueckeTab> { PropertyTab(PropertyType.SITE, session.inserate) }
             composable<EinstellungenTab> { SettingsPlaceholderScreen() }
         }
     }
