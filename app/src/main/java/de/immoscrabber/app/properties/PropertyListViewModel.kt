@@ -20,9 +20,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Der Kartenstapel lädt nach, sobald weniger als so viele Karten übrig sind (Entscheidung #6). */
-private const val STACK_LOAD_MORE_THRESHOLD = 5
-
 /** Filter-Chips eines Tabs; [label] ist der Query-Wert (`null` = alle Labels). */
 enum class Filter(val label: Label?) {
     Neu(Label.UNBEWERTET),
@@ -31,21 +28,13 @@ enum class Filter(val label: Label?) {
     Archiv(Label.UNINTERESSANT),
 }
 
-/** Eine abgeschickte Bewertung, damit Rückgängig und Fehler sie zurückdrehen können. */
-class Bewertung internal constructor(
-    internal val inserat: Inserat,
-    internal val label: Label,
-    internal val pager: InseratPager,
-    internal val removed: RemovedInserat?,
-) {
-    internal var job: Job? = null
-    internal var failed = false
-}
-
 /** Einmalige Ereignisse des Tabs. */
 sealed interface ListEvent {
-    /** „Als Favorit markiert“ / „Ins Archiv verschoben“ mit „Rückgängig“. */
-    data class Bewertet(val label: Label, val bewertung: Bewertung) : ListEvent
+    /**
+     * „Als Favorit markiert“ / „Ins Archiv verschoben“ mit „Rückgängig“. [bewertungId] nennt die
+     * Bewertung für [PropertyListViewModel.undo]; ihren Zustand hält das ViewModel.
+     */
+    data class Bewertet(val label: Label, val bewertungId: Long) : ListEvent
 
     /** „Bewertung nicht gespeichert“ mit „Erneut versuchen“; die Zeile ist schon zurück. */
     data class BewertungFehlgeschlagen(val inserat: Inserat, val label: Label) : ListEvent
@@ -89,6 +78,7 @@ class PropertyListViewModel(
 
     /** Nur die letzte Bewertung lässt sich rückgängig machen. */
     private var letzteBewertung: Bewertung? = null
+    private var nextBewertungId = 0L
 
     private lateinit var pager: InseratPager
     private var pagerScope: CoroutineScope? = null
@@ -119,9 +109,9 @@ class PropertyListViewModel(
             target.update(inserat.id) { it.copy(label = label) }
             null
         }
-        val bewertung = Bewertung(inserat, label, target, removed)
+        val bewertung = Bewertung(nextBewertungId++, inserat, label, target, removed)
         letzteBewertung = bewertung
-        _events.trySend(ListEvent.Bewertet(label, bewertung))
+        _events.trySend(ListEvent.Bewertet(label, bewertung.id))
         bewertung.job = viewModelScope.launch {
             if (repository.bewerten(type, inserat.id, label) is ApiResult.Failure) {
                 // Keine stillen Wiederholungen: zurückdrehen, melden, der Nutzer entscheidet.
@@ -143,8 +133,7 @@ class PropertyListViewModel(
      * gegeneinander laufen.
      */
     fun undo(bewertet: ListEvent.Bewertet) {
-        val bewertung = bewertet.bewertung
-        if (bewertung !== letzteBewertung) return
+        val bewertung = letzteBewertung?.takeIf { it.id == bewertet.bewertungId } ?: return
         letzteBewertung = null
         viewModelScope.launch {
             bewertung.job?.join()
@@ -219,9 +208,21 @@ class PropertyListViewModel(
                 _state.update { it.copy(pager = pagerState) }
                 // Kartenstapel: still nachladen, sobald weniger als 5 Karten übrig sind. Der Pager
                 // ignoriert das während des Ladens, am Ende und nach einem Fehler (dann „Erneut versuchen“).
-                if (filter == Filter.Neu && pagerState.items.size < STACK_LOAD_MORE_THRESHOLD) newPager.loadMore()
+                if (filter == Filter.Neu && pagerState.items.size < LOAD_MORE_THRESHOLD) newPager.loadMore()
             }
         }
         newPager.refresh()
     }
+}
+
+/** Eine abgeschickte Bewertung, damit Rückgängig und Fehler sie zurückdrehen können. */
+private class Bewertung(
+    val id: Long,
+    val inserat: Inserat,
+    val label: Label,
+    val pager: InseratPager,
+    val removed: RemovedInserat?,
+) {
+    var job: Job? = null
+    var failed = false
 }

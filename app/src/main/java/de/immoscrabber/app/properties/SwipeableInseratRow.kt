@@ -6,11 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -27,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import de.immoscrabber.app.R
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.Label
-import de.immoscrabber.app.core.ui.theme.immoColors
 
 /**
  * Zeile der Wischliste mit Gmail-artigem Wischen (Entscheidung #6):
@@ -77,33 +72,31 @@ fun SwipeableInseratRow(
 
 private val SwipeToDismissBoxValue.label: Label?
     get() = when (this) {
-        SwipeToDismissBoxValue.StartToEnd -> Label.INTERESSANT
-        SwipeToDismissBoxValue.EndToStart -> Label.UNINTERESSANT
+        SwipeToDismissBoxValue.StartToEnd -> swipeLabel(rightward = true)
+        SwipeToDismissBoxValue.EndToStart -> swipeLabel(rightward = false)
         SwipeToDismissBoxValue.Settled -> null
     }
 
 @Composable
 private fun SwipeBackground(direction: SwipeToDismissBoxValue) {
-    val colors = MaterialTheme.immoColors
-    val (background, content, alignment) = when (direction) {
-        SwipeToDismissBoxValue.StartToEnd -> Triple(colors.interessant, colors.onInteressant, Alignment.CenterStart)
-        SwipeToDismissBoxValue.EndToStart -> Triple(colors.uninteressant, colors.onUninteressant, Alignment.CenterEnd)
-        SwipeToDismissBoxValue.Settled -> return
-    }
+    val label = direction.label ?: return
+    val icon = label.icon ?: return
+    val rightward = direction == SwipeToDismissBoxValue.StartToEnd
+    val content = label.onColor
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(background)
+            .background(label.color)
             .padding(horizontal = 24.dp),
-        contentAlignment = alignment,
+        contentAlignment = if (rightward) Alignment.CenterStart else Alignment.CenterEnd,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (direction == SwipeToDismissBoxValue.StartToEnd) {
-                Icon(Icons.Filled.Favorite, contentDescription = null, tint = content)
+            if (rightward) {
+                Icon(icon, contentDescription = null, tint = content)
                 Text(stringResource(R.string.swipe_favorite), color = content, fontWeight = FontWeight.Bold)
             } else {
                 Text(stringResource(R.string.swipe_archive), color = content, fontWeight = FontWeight.Bold)
-                Icon(Icons.Outlined.Archive, contentDescription = null, tint = content)
+                Icon(icon, contentDescription = null, tint = content)
             }
         }
     }

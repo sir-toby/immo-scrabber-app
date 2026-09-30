@@ -69,9 +69,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 
-/** Nachladen, sobald weniger als so viele Einträge unterhalb des sichtbaren Bereichs liegen. */
-private const val LOAD_MORE_THRESHOLD = 5
-
 /**
  * Tab eines Immobilientyps. Das ViewModel hängt am Back-Stack-Eintrag des Tabs; Filter und
  * Liste überleben so Tab-Wechsel und Drehen.
@@ -205,33 +202,23 @@ private fun ListContent(
 ) {
     val pager = state.pager
     val loadState = pager.loadState
+    // Noch nichts zu zeigen: Die erste Seite fehlt, oder der Kartenstapel ist leer, aber es gibt
+    // weitere Seiten. Das Laden läuft dann oder ist gescheitert.
+    val waiting = !pager.loaded || (state.filter == Filter.Neu && pager.items.isEmpty() && !pager.endReached)
     when {
-        !pager.loaded && loadState is LoadState.Failed ->
-            if (loadState.error is ApiError.BadRequest) {
-                // 400 nur ohne jedes Suchprofil; den Button zum Editor bringt dessen Ticket.
-                MessageState(
-                    title = stringResource(R.string.no_search_profile_title),
-                    text = stringResource(R.string.no_search_profile_text),
-                )
-            } else {
-                MessageState(
-                    title = stringResource(R.string.load_failed, typeName),
-                    action = stringResource(R.string.retry) to viewModel::retryLoading,
-                )
-            }
-        !pager.loaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // 400 nur ohne jedes Suchprofil; den Button zum Editor bringt dessen Ticket.
+        !pager.loaded && loadState is LoadState.Failed && loadState.error is ApiError.BadRequest ->
+            MessageState(
+                title = stringResource(R.string.no_search_profile_title),
+                text = stringResource(R.string.no_search_profile_text),
+            )
+        waiting && loadState is LoadState.Failed -> MessageState(
+            title = stringResource(R.string.load_failed, typeName),
+            action = stringResource(R.string.retry) to viewModel::retryLoading,
+        )
+        waiting -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
-        // Kartenstapel leer, aber es gibt weitere Seiten: Nachladen läuft oder ist gescheitert.
-        state.filter == Filter.Neu && pager.items.isEmpty() && !pager.endReached ->
-            if (loadState is LoadState.Failed) {
-                MessageState(
-                    title = stringResource(R.string.load_failed, typeName),
-                    action = stringResource(R.string.retry) to viewModel::retryLoading,
-                )
-            } else {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            }
         pager.items.isEmpty() -> EmptyState(state.filter, typeName)
         state.filter == Filter.Neu -> Kartenstapel(
             items = pager.items,

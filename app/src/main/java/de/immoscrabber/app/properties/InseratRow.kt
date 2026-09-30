@@ -13,9 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -145,12 +142,9 @@ internal fun EnergyClassBadge(energyClass: String?, modifier: Modifier = Modifie
 /** „♡ Favorit“ bzw. „Archiv“; unbewertet ohne Badge. */
 @Composable
 private fun LabelBadge(label: Label) {
-    val (icon, text, color) = when (label) {
-        Label.INTERESSANT -> Triple(Icons.Filled.Favorite, R.string.badge_favorite, MaterialTheme.immoColors.interessant)
-        Label.UNINTERESSANT -> Triple(Icons.Outlined.Archive, R.string.badge_archive, MaterialTheme.immoColors.uninteressant)
-        Label.UNBEWERTET -> return
-    }
-    BadgePill(icon, stringResource(text), color)
+    val icon = label.icon ?: return
+    val text = if (label == Label.INTERESSANT) R.string.badge_favorite else R.string.badge_archive
+    BadgePill(icon, stringResource(text), label.color)
 }
 
 @Composable
@@ -167,20 +161,23 @@ private fun BadgePill(icon: ImageVector, text: String, color: Color) {
     }
 }
 
+/** Beispiel-Inserat für die Vorschauen von Zeile und Karte. */
+internal fun previewInserat(id: String, label: Label) = Inserat(
+    id = id, propertyType = PropertyType.HOUSE,
+    title = "Einfamilienhaus mit Garten – ruhige Lage, viel Platz für die Familie",
+    imageUrl = null, price = 450_000.0, zipCode = "91054", city = "Erlangen",
+    street = null, houseNumber = null, rooms = 5.0, livingArea = 140.0, plotArea = 600.0,
+    anbieter = null, url = null, source = "Kleinanzeigen", createdAt = null,
+    label = label, constructionYear = 1978, energyEfficiencyClass = "B",
+)
+
 @Preview
 @Composable
 private fun InseratRowPreview() {
     ImmoFinderTheme {
         Column {
             InseratRow(
-                Inserat(
-                    id = "1", propertyType = PropertyType.HOUSE,
-                    title = "Einfamilienhaus mit Garten – ruhige Lage, viel Platz für die Familie",
-                    imageUrl = null, price = 450_000.0, zipCode = "91054", city = "Erlangen",
-                    street = null, houseNumber = null, rooms = 5.0, livingArea = 140.0, plotArea = 600.0,
-                    anbieter = null, url = null, source = "Kleinanzeigen", createdAt = null,
-                    label = Label.INTERESSANT, constructionYear = 1978, energyEfficiencyClass = "B",
-                ),
+                previewInserat(id = "1", label = Label.INTERESSANT),
                 showLabel = true,
                 onClick = {},
             )

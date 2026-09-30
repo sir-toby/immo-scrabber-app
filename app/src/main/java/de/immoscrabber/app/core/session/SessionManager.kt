@@ -9,8 +9,6 @@ import de.immoscrabber.app.core.network.ImmoApi
 import de.immoscrabber.app.core.network.TokenPair
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,8 +53,6 @@ class Session internal constructor(
     val baseUrl: String,
     val username: String,
     val api: ImmoApi,
-    /** Lebt so lange wie die Sitzung; wird beim Verwerfen abgebrochen. */
-    val scope: CoroutineScope,
     internal val tokens: SessionTokens,
 ) {
     /** Inserate dieser Sitzung; ihre späteren Caches verschwinden mit der Sitzung. */
@@ -64,7 +60,6 @@ class Session internal constructor(
 
     internal fun close() {
         tokens.close()
-        scope.cancel()
     }
 }
 
@@ -124,14 +119,11 @@ class SessionManager(
             is ApiResult.Success -> result.value
         }
         return mutex.withLock {
-            try {
+            val saved = succeeds {
                 tokenStore.save(tokens)
                 prefsStore.save(SessionPrefs(baseUrl, username))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                return@withLock LoginResult.StorageFailed
             }
+            if (!saved) return@withLock LoginResult.StorageFailed
             currentSession?.close()
             open(baseUrl, username, tokens)
             LoginResult.Success
@@ -153,13 +145,8 @@ class SessionManager(
 
     private suspend fun persistIfCurrent(session: Session, tokens: TokenPair): Boolean = mutex.withLock {
         if (currentSession !== session) return@withLock false
-        try {
-            tokenStore.save(tokens)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            // Das neue Paar gilt trotzdem im Speicher; beim nächsten Start hilft der alte Refresh.
-        }
+        // Scheitert das Speichern, gilt das neue Paar trotzdem im Speicher; beim nächsten Start hilft der alte Refresh.
+        succeeds { tokenStore.save(tokens) }
         true
     }
 
@@ -177,7 +164,6 @@ class SessionManager(
             baseUrl = baseUrl,
             username = username,
             api = apiClientFactory.create(baseUrl, sessionTokens, TokenRefreshInterceptor(sessionTokens)),
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
             tokens = sessionTokens,
         )
         currentSession = session
@@ -192,16 +178,25 @@ class SessionManager(
     }
 
     private suspend fun clearTokens() {
-        try {
-            tokenStore.clear()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            // Nichts zu retten; die Sitzung im Speicher ist ohnehin verworfen.
-        }
+        // Scheitert das, ist nichts zu retten; die Sitzung im Speicher ist ohnehin verworfen.
+        succeeds { tokenStore.clear() }
     }
 
     private fun loggedOut(reason: LogoutReason?, baseUrl: String?, username: String?) {
         _state.value = SessionState.LoggedOut(reason, baseUrl, username)
     }
 }
+
+/**
+ * Führt [block] aus und meldet, ob er ohne Ausnahme durchlief. Für Speicherzugriffe, deren
+ * Scheitern die Sitzung nicht aufhalten darf; der Abbruch der Coroutine wird durchgereicht.
+ */
+private inline fun succeeds(block: () -> Unit): Boolean =
+    try {
+        block()
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+        false
+    }

@@ -69,9 +69,7 @@ import androidx.compose.ui.unit.sp
 import de.immoscrabber.app.R
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.Label
-import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.ui.theme.ImmoFinderTheme
-import de.immoscrabber.app.core.ui.theme.immoColors
 import kotlin.math.abs
 import kotlin.math.max
 import kotlinx.coroutines.Job
@@ -266,7 +264,7 @@ private fun StackItem(
                 animate(x, target, velocity, tween(duration, easing = LinearEasing)) { value, _ -> swipe.offset = value }
             } finally {
                 // Auch wenn die Karte vorher den Stapel verlässt: Die Bewertung ist entschieden.
-                currentOnBewerten(if (direction > 0) Label.INTERESSANT else Label.UNINTERESSANT)
+                currentOnBewerten(swipeLabel(rightward = direction > 0))
             }
         }
     }
@@ -391,7 +389,7 @@ private fun BoxScope.SwipeStamp(offset: () -> Float, threshold: Float) {
     // Richtung und läuft nur neu, wenn diese kippt.
     val currentOffset by rememberUpdatedState(offset)
     val interested by remember { derivedStateOf { currentOffset() > 0f } }
-    val color = if (interested) MaterialTheme.immoColors.interessant else MaterialTheme.immoColors.uninteressant
+    val color = swipeLabel(rightward = interested).color
     Text(
         text = stringResource(if (interested) R.string.stack_stamp_interested else R.string.stack_stamp_discard),
         color = color,
@@ -483,16 +481,7 @@ private fun KartenstapelPreview() {
     ImmoFinderTheme {
         Surface {
             Kartenstapel(
-                items = List(4) { i ->
-                    Inserat(
-                        id = "$i", propertyType = PropertyType.HOUSE,
-                        title = "Einfamilienhaus mit Garten – ruhige Lage, viel Platz für die Familie",
-                        imageUrl = null, price = 450_000.0, zipCode = "91054", city = "Erlangen",
-                        street = null, houseNumber = null, rooms = 5.0, livingArea = 140.0, plotArea = 600.0,
-                        anbieter = null, url = null, source = "Kleinanzeigen", createdAt = null,
-                        label = Label.UNBEWERTET, constructionYear = 1978, energyEfficiencyClass = "B",
-                    )
-                },
+                items = List(4) { i -> previewInserat(id = "$i", label = Label.UNBEWERTET) },
                 moreAvailable = true,
                 onBewerten = { _, _ -> },
                 onSkip = {},

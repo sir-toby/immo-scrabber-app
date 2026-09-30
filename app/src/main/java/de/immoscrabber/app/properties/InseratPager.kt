@@ -39,8 +39,14 @@ data class PagerState(
 data class RemovedInserat(val inserat: Inserat, val index: Int)
 
 /**
+ * Nachladen, sobald weniger als so viele Inserate übrig sind: in der Wischliste unterhalb des
+ * sichtbaren Bereichs, im Kartenstapel insgesamt (Entscheidung #6).
+ */
+internal const val LOAD_MORE_THRESHOLD = 5
+
+/**
  * Eigener kleiner Pager (Entscheidung #10) für eine Liste Inserate, geteilt von Wischliste und
- * Kartenstapel; nur die Nachladeschwelle legt die UI fest.
+ * Kartenstapel. Wann nachgeladen wird, entscheiden sie selbst, beide mit [LOAD_MORE_THRESHOLD].
  *
  * - Seiten kommen über [loadPage]; der Cursor steckt im [InseratPage.nextCursor], eine Seite
  *   unter der Seitengröße (kein Cursor) bedeutet Ende.
