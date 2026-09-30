@@ -1,0 +1,19 @@
+{
+  "city": "Erlangen",
+  "latitude": "49.5897",
+  "longitude": "11.0120",
+  "maxConstructionYear": null,
+  "minArea": null,
+  "minConstructionYear": 1970,
+  "minRooms": 4,
+  "priceLimit": 500000,
+  "property_type": "HOUSE",
+  "provider_blacklist": [
+    "Musterbau GmbH"
+  ],
+  "radius": 20,
+  "source_blacklist": [],
+  "userId": "bc2f67fb-53c9-4eab-8a06-41bdf1441be9",
+  "uuid": "0b7e7a52-3a8e-4d0e-9c55-6c1f0d6f6a01",
+  "zipCode": "91054"
+}

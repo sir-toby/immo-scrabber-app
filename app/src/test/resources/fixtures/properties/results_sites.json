@@ -1,0 +1,142 @@
+{
+  "flats": [],
+  "houses": [],
+  "sites": [
+    {
+      "area_estate": 670.0,
+      "created_at": "2026-09-30T09:16:10.177763",
+      "id": "836c8102-5d4d-4bd0-bde5-23bb07d6a2c2",
+      "image": "https://picsum.photos/seed/immo200/800/600",
+      "label": "unbewertet",
+      "location": {
+        "city": "Erlangen",
+        "number": null,
+        "street": null,
+        "zipCode": "91054"
+      },
+      "price": 188000.0,
+      "source": "Sparkasse",
+      "title": "Baugrundstück Nr. 1",
+      "url": "https://example.com/grundstueck/0"
+    },
+    {
+      "area_estate": 509.0,
+      "created_at": "2026-09-30T02:16:10.177763",
+      "id": "e7032e8b-21b8-47f4-ad72-47f01eb480b5",
+      "image": "http://picsum.photos/seed/immo201/800/600",
+      "label": "unbewertet",
+      "location": {
+        "city": "Erlangen",
+        "number": null,
+        "street": null,
+        "zipCode": "91054"
+      },
+      "price": 179000.0,
+      "source": "Sparkasse",
+      "title": "Baugrundstück Nr. 2",
+      "url": "https://example.com/grundstueck/1"
+    },
+    {
+      "area_estate": 678.0,
+      "created_at": "2026-09-29T19:16:10.177763",
+      "id": "fa0f310f-fb32-4501-96c0-d56428a856c5",
+      "image": null,
+      "label": "unbewertet",
+      "location": {
+        "city": "Erlangen",
+        "number": null,
+        "street": null,
+        "zipCode": "91054"
+      },
+      "price": 199000.0,
+      "source": "Sparkasse",
+      "title": "Baugrundstück Nr. 3",
+      "url": "https://example.com/grundstueck/2"
+    },
+    {
+      "area_estate": 1019.0,
+      "created_at": "2026-09-29T12:16:10.177763",
+      "id": "1b1602d5-f16d-44c1-bf53-6136e5512c9a",
+      "image": "/relative/path.jpg",
+      "label": "unbewertet",
+      "location": {
+        "city": "Erlangen",
+        "number": null,
+        "street": null,
+        "zipCode": "91054"
+      },
+      "price": 264000.0,
+      "source": "Sparkasse",
+      "title": "Baugrundstück Nr. 4",
+      "url": "https://example.com/grundstueck/3"
+    },
+    {
+      "area_estate": 1134.0,
+      "created_at": "2026-09-29T05:16:10.177763",
+      "id": "b9654869-5ecd-4573-8a7c-c5d961c4fa00",
+      "image": "https://picsum.photos/seed/immo204/800/600",
+      "label": "unbewertet",
+      "location": {
+        "city": "Erlangen",
+        "number": null,
+        "street": null,
+        "zipCode": "91054"
+      },
+      "price": 227000.0,
+      "source": "Sparkasse",
+      "title": "Baugrundstück Nr. 5",
+      "url": "https://example.com/grundstueck/4"
+    },
+    {
+      "area_estate": 608.0,
+      "created_at": "2026-09-28T22:16:10.177763",
+      "id": "68a42341-581a-4150-b4f0-fe87c0ed701d",
+      "image": "http://picsum.photos/seed/immo205/800/600",
+      "label": "unbewertet",
+      "location": {
+        "city": "Erlangen",
+        "number": null,
+        "street": null,
+        "zipCode": "91054"
+      },
+      "price": 295000.0,
+      "source": "Sparkasse",
+      "title": "Baugrundstück Nr. 6",
+      "url": "https://example.com/grundstueck/5"
+    },
+    {
+      "area_estate": 917.0,
+      "created_at": "2026-09-28T15:16:10.177763",
+      "id": "f510d005-55ed-4c62-8e4a-f611a6361696",
+      "image": null,
+      "label": "unbewertet",
+      "location": {
+        "city": "Erlangen",
+        "number": null,
+        "street": null,
+        "zipCode": "91054"
+      },
+      "price": 255000.0,
+      "source": "Sparkasse",
+      "title": "Baugrundstück Nr. 7",
+      "url": "https://example.com/grundstueck/6"
+    },
+    {
+      "area_estate": 657.0,
+      "created_at": "2026-09-28T08:16:10.177763",
+      "id": "512514e1-8384-494a-815c-4e936e7ce538",
+      "image": "/relative/path.jpg",
+      "label": "unbewertet",
+      "location": {
+        "city": "Erlangen",
+        "number": null,
+        "street": null,
+        "zipCode": "91054"
+      },
+      "price": 370000.0,
+      "source": "Sparkasse",
+      "title": "Baugrundstück Nr. 8",
+      "url": "https://example.com/grundstueck/7"
+    }
+  ]
+}
