@@ -1,5 +1,6 @@
 import de.immoscrabber.build.AppVersion
 import java.util.Base64
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -21,7 +22,7 @@ val appVersion = AppVersion.fromTag(
 // im Login leer; der Release-Build bricht dann ab.
 val prodBaseUrl: String = providers.environmentVariable("IMMO_PROD_BASE_URL").orNull?.takeIf(String::isNotBlank)
     ?: rootProject.file("local.properties").takeIf { it.exists() }?.let { file ->
-        java.util.Properties().apply { file.inputStream().use(::load) }.getProperty("immo.prodBaseUrl")
+        Properties().apply { file.inputStream().use { load(it) } }.getProperty("immo.prodBaseUrl")
     }?.takeIf(String::isNotBlank)
     ?: ""
 
