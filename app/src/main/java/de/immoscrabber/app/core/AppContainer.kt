@@ -14,6 +14,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 
 /** Unverschlüsselter Speicher für Server und Username (Datei `datastore/session.preferences_pb`). */
 private val Context.sessionPrefsDataStore by preferencesDataStore(name = "session")
@@ -38,6 +40,17 @@ class AppContainer(applicationContext: Context) {
     val allowLocalCleartext: Boolean = BuildConfig.DEBUG
 
     val apiClientFactory: ApiClientFactory = ApiClientFactory()
+
+    /**
+     * Eigener OkHttp-Client für Anbieterbilder (Coil), ohne Auth-Interceptor: Tokens gehen nie
+     * an fremde Server (Entscheidung #10). Sitzungsunabhängig, Bilder cacht Coil auf der Platte.
+     */
+    val imageHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .build()
+    }
 
     private val aead by lazy { SessionCrypto.keystoreAead(applicationContext) }
 
