@@ -66,3 +66,17 @@ _Avoid_: Stack, Tinder-Ansicht
 **Wischliste**:
 Die Ansicht der Filter Favoriten, Alle und Archiv: eine Liste, deren Zeilen man zum Umbewerten zur Seite wischt.
 _Avoid_: Swipe-Liste
+
+## Benachrichtigungen
+
+**Scraping-Runde**:
+Ein Durchlauf, in dem der Scraper alle Quellen abfragt und die gefundenen Inserate anschließend anreichert.
+_Avoid_: Scrape, Lauf, Job
+
+**Neuzugang**:
+Ein unbewertetes Inserat, das seit der letzten Benachrichtigung des Nutzers für seinen Immobilientyp hinzugekommen ist. Enger als der Filter „Neu“, der alle unbewerteten Inserate zeigt.
+_Avoid_: neues Inserat, ungesehenes Inserat
+
+**Benachrichtigung**:
+Die Push-Meldung an einen Nutzer über die Neuzugänge eines Immobilientyps nach einer Scraping-Runde; höchstens eine pro Immobilientyp und Runde.
+_Avoid_: Notification, Alert, Push
