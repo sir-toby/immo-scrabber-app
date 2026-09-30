@@ -23,8 +23,12 @@ import de.immoscrabber.app.core.network.dto.toSuchprofil
  */
 class ImmoApi internal constructor(private val service: ImmoApiService) {
 
-    /** `POST /auth/login`. Fehlt eines der Tokens, ist das [ApiError.InvalidResponse]. */
-    suspend fun login(username: String, password: String): ApiResult<TokenPair> = apiCall {
+    /**
+     * `POST /auth/login`. Nur 401 heißt Zugangsdaten falsch ([ApiError.SessionExpired]); ohne Bearer
+     * ist 422 kein JWT-Fehler und kommt als [ApiError.Http] an (Entscheidung #7). Fehlt eines der
+     * Tokens, ist das [ApiError.InvalidResponse].
+     */
+    suspend fun login(username: String, password: String): ApiResult<TokenPair> = apiCall(LOGIN_REJECTED_CODES) {
         service.login(LoginRequestDto(username, password)).toTokenPair()
     }
 
@@ -121,3 +125,6 @@ const val DEFAULT_PAGE_SIZE = 20
 
 /** Access- und Refresh-Token aus Login oder Refresh. */
 data class TokenPair(val accessToken: String, val refreshToken: String)
+
+/** Beim Login heißt nur 401 „Benutzername oder Passwort falsch“. */
+private val LOGIN_REJECTED_CODES = setOf(401)

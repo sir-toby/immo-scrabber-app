@@ -9,8 +9,8 @@ sealed interface ApiError {
 
     /**
      * 401 oder 422 (JWT-Fehler von flask_jwt_extended). Mit dem Refresh-Interceptor der Sitzung
-     * kommt das erst an, wenn auch der Refresh gescheitert ist. Bei `login` bedeutet es:
-     * Benutzername oder Passwort falsch.
+     * kommt das erst an, wenn auch der Refresh gescheitert ist. Bei `login` nur 401: Benutzername
+     * oder Passwort falsch.
      */
     data object SessionExpired : ApiError
 

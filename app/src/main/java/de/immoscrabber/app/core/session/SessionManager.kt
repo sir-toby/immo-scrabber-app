@@ -46,6 +46,17 @@ sealed interface LoginResult {
 }
 
 /**
+ * Was der Login-Screen vom [SessionManager] braucht: den Zustand zum Vorbelegen und das Anmelden.
+ * In Tests ersetzt ein Fake den SessionManager.
+ */
+interface SessionLogin {
+    val state: StateFlow<SessionState>
+
+    /** Meldet mit bereits normalisierter [baseUrl] an und speichert Tokens, Server und Username. */
+    suspend fun login(baseUrl: String, username: String, password: String): LoginResult
+}
+
+/**
  * Alles, was zu genau einer Sitzung gehört. Wird bei Logout/Sitzungsende komplett
  * verworfen (Entscheidung #10); spätere Repositories samt Caches hängen hier an.
  */
@@ -73,10 +84,10 @@ class SessionManager(
     private val prefsStore: SessionPrefsStore,
     private val apiClientFactory: ApiClientFactory,
     private val scope: CoroutineScope,
-) {
+) : SessionLogin {
     private val mutex = Mutex()
     private val _state = MutableStateFlow<SessionState>(SessionState.Loading)
-    val state: StateFlow<SessionState> = _state.asStateFlow()
+    override val state: StateFlow<SessionState> = _state.asStateFlow()
 
     /** Die laufende Sitzung, `null` wenn abgemeldet. */
     @Volatile
@@ -111,8 +122,7 @@ class SessionManager(
         scope.launch(Dispatchers.IO) { session.tokens.refresh(session.tokens.accessToken()) }
     }
 
-    /** Meldet mit bereits normalisierter [baseUrl] an und speichert Tokens, Server und Username. */
-    suspend fun login(baseUrl: String, username: String, password: String): LoginResult {
+    override suspend fun login(baseUrl: String, username: String, password: String): LoginResult {
         val loginApi = apiClientFactory.create(baseUrl, tokenSource = { null })
         val tokens = when (val result = loginApi.login(username, password)) {
             is ApiResult.Failure -> return LoginResult.Failure(result.error)
