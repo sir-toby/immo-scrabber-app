@@ -34,5 +34,6 @@ Unter *Settings → Secrets and variables → Actions* im Repo:
 | `RELEASE_KEYSTORE_PASSWORD` | Passwort des Keystores |
 | `RELEASE_KEY_ALIAS` | Alias des Schlüssels (`immo-finder`) |
 | `RELEASE_KEY_PASSWORD` | Passwort des Schlüssels |
+| `IMMO_PROD_BASE_URL` | Voreingestellter Prod-Server, z. B. `https://…/api/` (bewusst nicht im Repo; lokal als `immo.prodBaseUrl` in `local.properties`) |
 
 `GITHUB_TOKEN` stellt GitHub Actions selbst bereit. Keystore und Passwörter gehören nie ins Repo.
