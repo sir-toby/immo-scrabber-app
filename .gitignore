@@ -1,6 +1,8 @@
 *.iml
 .gradle
+.kotlin
 /local.properties
+local.properties
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
@@ -8,12 +10,19 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
-/build
+/build/
+/app/build/
+/buildSrc/build/
+/buildSrc/.gradle/
 /captures
 .externalNativeBuild
 .cxx
-local.properties
 
-# Project exclude paths
-/app/
-/gradle/
+# Signierung: Keystores und Passwörter gehören nie ins Repo
+*.jks
+*.keystore
+*.p12
+keystore.properties
+
+# Worktrees von Claude Code
+.claude/worktrees/
