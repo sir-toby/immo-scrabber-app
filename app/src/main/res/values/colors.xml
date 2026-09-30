@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Favicon-Blau (Seed des Farbschemas), für Icon und Splash -->
+    <color name="brand_blue">#FF1B3A6B</color>
+    <!-- Heller Icon-Hintergrund: Primär-Palette Ton 95 -->
+    <color name="icon_background">#FFEDF0FF</color>
+    <!-- Splash-Hintergrund = M3 surface (hell); dunkel in values-night -->
+    <color name="splash_background">#FFF9F9FF</color>
+</resources>

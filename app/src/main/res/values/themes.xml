@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fenster-Theme; die eigentlichen Farben kommen aus dem Compose-Theme (ImmoFinderTheme). -->
+    <style name="Theme.ImmoFinder" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
+
+    <!-- Splash Screen API (androidx.core:core-splashscreen): Icon auf heller Kachel über dem Surface. -->
+    <style name="Theme.ImmoFinder.Splash" parent="Theme.SplashScreen.IconBackground">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/icon_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.ImmoFinder</item>
+    </style>
+</resources>
