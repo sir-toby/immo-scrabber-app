@@ -47,7 +47,7 @@ class PropertiesApiTest {
                 rooms = 5.0,
                 livingArea = 118.0,
                 plotArea = 275.0,
-                provider = "Makler Müller",
+                anbieter = "Makler Müller",
                 url = "https://example.com/haus/0",
                 source = "Kleinanzeigen",
                 createdAt = "2026-09-30T09:16:10.177763",
@@ -136,7 +136,7 @@ class PropertiesApiTest {
         assertEquals("Sparkasse", site.source)
         assertNull(site.rooms)
         assertNull(site.livingArea)
-        assertNull(site.provider)
+        assertNull(site.anbieter)
         assertNull(site.constructionYear)
         assertNull(site.energyEfficiencyClass)
     }

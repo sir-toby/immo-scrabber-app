@@ -37,7 +37,7 @@ fun inserat(
     rooms = rooms,
     livingArea = livingArea,
     plotArea = plotArea,
-    provider = null,
+    anbieter = null,
     url = url,
     source = null,
     createdAt = "t$id",

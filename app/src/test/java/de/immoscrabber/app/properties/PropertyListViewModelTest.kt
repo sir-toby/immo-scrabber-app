@@ -84,12 +84,12 @@ class PropertyListViewModelTest {
         val vm = favoritenViewModel()
         val events = events(vm)
 
-        vm.rate(vm.state.value.pager.items[1], Label.UNINTERESSANT)
+        vm.bewerten(vm.state.value.pager.items[1], Label.UNINTERESSANT)
 
         assertEquals(listOf("1", "3"), vm.ids)
         runCurrent()
         assertEquals(listOf(LabelRequest(PropertyType.HOUSE, "2", Label.UNINTERESSANT)), repository.labelRequests)
-        assertEquals(Label.UNINTERESSANT, (events.single() as ListEvent.Rated).label)
+        assertEquals(Label.UNINTERESSANT, (events.single() as ListEvent.Bewertet).label)
     }
 
     @Test
@@ -100,7 +100,7 @@ class PropertyListViewModelTest {
         vm.selectFilter(Filter.Alle)
         runCurrent()
 
-        vm.rate(vm.state.value.pager.items[0], Label.INTERESSANT)
+        vm.bewerten(vm.state.value.pager.items[0], Label.INTERESSANT)
         runCurrent()
 
         assertEquals(listOf("1", "2", "3"), vm.ids)
@@ -113,7 +113,7 @@ class PropertyListViewModelTest {
         val vm = favoritenViewModel()
         val events = events(vm)
 
-        vm.rate(vm.state.value.pager.items[0], Label.INTERESSANT)
+        vm.bewerten(vm.state.value.pager.items[0], Label.INTERESSANT)
         runCurrent()
 
         assertEquals(listOf("1", "2", "3"), vm.ids)
@@ -129,11 +129,11 @@ class PropertyListViewModelTest {
             repository.labelResult = networkError
 
             val zwei = vm.state.value.pager.items[1]
-            vm.rate(zwei, Label.UNINTERESSANT)
+            vm.bewerten(zwei, Label.UNINTERESSANT)
             runCurrent()
 
             assertEquals(listOf("1", "2", "3"), vm.ids)
-            val failed = events.last() as ListEvent.RatingFailed
+            val failed = events.last() as ListEvent.BewertungFehlgeschlagen
 
             repository.labelResult = ApiResult.Success(Unit)
             vm.retry(failed)
@@ -147,10 +147,10 @@ class PropertyListViewModelTest {
     fun `Rückgängig setzt das alte Label per PATCH und holt die Zeile an ihre Stelle zurück`() = runTest(dispatcher) {
         val vm = favoritenViewModel()
         val events = events(vm)
-        vm.rate(vm.state.value.pager.items[1], Label.UNINTERESSANT)
+        vm.bewerten(vm.state.value.pager.items[1], Label.UNINTERESSANT)
         runCurrent()
 
-        vm.undo(events.last() as ListEvent.Rated)
+        vm.undo(events.last() as ListEvent.Bewertet)
         runCurrent()
 
         assertEquals(listOf("1", "2", "3"), vm.ids)
@@ -164,9 +164,9 @@ class PropertyListViewModelTest {
         val vm = viewModel()
         vm.selectFilter(Filter.Alle)
         val events = events(vm)
-        vm.rate(vm.state.value.pager.items[0], Label.INTERESSANT)
+        vm.bewerten(vm.state.value.pager.items[0], Label.INTERESSANT)
 
-        vm.undo(events.last() as ListEvent.Rated)
+        vm.undo(events.last() as ListEvent.Bewertet)
         runCurrent()
 
         assertEquals(Label.UNBEWERTET, vm.state.value.pager.items[0].label)
@@ -177,9 +177,9 @@ class PropertyListViewModelTest {
     fun `nur die letzte Bewertung lässt sich rückgängig machen`() = runTest(dispatcher) {
         val vm = favoritenViewModel()
         val events = events(vm)
-        vm.rate(vm.state.value.pager.items[0], Label.UNINTERESSANT)
-        val first = events.last() as ListEvent.Rated
-        vm.rate(vm.state.value.pager.items[0], Label.UNINTERESSANT)
+        vm.bewerten(vm.state.value.pager.items[0], Label.UNINTERESSANT)
+        val first = events.last() as ListEvent.Bewertet
+        vm.bewerten(vm.state.value.pager.items[0], Label.UNINTERESSANT)
         runCurrent()
 
         vm.undo(first)
@@ -193,11 +193,11 @@ class PropertyListViewModelTest {
     fun `scheitert Rückgängig, bleibt das Inserat bewertet und die App meldet es`() = runTest(dispatcher) {
         val vm = favoritenViewModel()
         val events = events(vm)
-        vm.rate(vm.state.value.pager.items[1], Label.UNINTERESSANT)
+        vm.bewerten(vm.state.value.pager.items[1], Label.UNINTERESSANT)
         runCurrent()
         repository.labelResult = networkError
 
-        vm.undo(events.last() as ListEvent.Rated)
+        vm.undo(events.last() as ListEvent.Bewertet)
         runCurrent()
 
         assertEquals(listOf("1", "3"), vm.ids)

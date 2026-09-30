@@ -36,6 +36,14 @@ class AuthApiTest {
     }
 
     @Test
+    fun `login mit 422 ist ein unerwarteter HTTP-Fehler, keine falschen Zugangsdaten`() = runTest {
+        // Ohne Bearer ist 422 kein JWT-Fehler; nur 401 heißt „falsch“ (Entscheidung #7).
+        mock.enqueue(jsonResponse(422, "errors/jwt_invalid_422.json"))
+
+        assertEquals(ApiResult.Failure(ApiError.Http(422)), mock.api.login("app-test", "geheim"))
+    }
+
+    @Test
     fun `login ohne refresh_token ist eine ungültige Antwort`() = runTest {
         mock.enqueue(MockResponse().setBody("""{"access_token":"nur-access"}"""))
 

@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.immoscrabber.app.core.session.BaseUrlResult
 import de.immoscrabber.app.core.session.LogoutReason
-import de.immoscrabber.app.core.session.SessionManager
+import de.immoscrabber.app.core.session.SessionLogin
 import de.immoscrabber.app.core.session.SessionState
 import de.immoscrabber.app.core.session.normalizeBaseUrl
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,16 +33,16 @@ data class LoginUiState(
 
 /**
  * Login-Screen: vorbelegt mit Server und Username der letzten Sitzung (sonst Prod-URL).
- * Nach erfolgreichem Login wechselt der [SessionManager] auf [SessionState.LoggedIn],
+ * Nach erfolgreichem Login wechselt der SessionManager auf [SessionState.LoggedIn],
  * die Navigation reagiert darauf.
  */
 class LoginViewModel(
-    private val sessionManager: SessionManager,
+    private val session: SessionLogin,
     prodBaseUrl: String,
     private val allowLocalCleartext: Boolean,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(initialState(sessionManager.state.value, prodBaseUrl))
+    private val _state = MutableStateFlow(initialState(session.state.value, prodBaseUrl))
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
 
     fun onUsernameChange(value: String) = _state.update { it.copy(username = value, error = null) }
@@ -65,7 +65,7 @@ class LoginViewModel(
         }
         _state.update { it.copy(loading = true, error = null, sessionExpired = false, serverUrl = baseUrl) }
         viewModelScope.launch {
-            val error = sessionManager.login(baseUrl, current.username.trim(), current.password).toLoginError()
+            val error = session.login(baseUrl, current.username.trim(), current.password).toLoginError()
             _state.update { it.copy(loading = false, error = error) }
         }
     }

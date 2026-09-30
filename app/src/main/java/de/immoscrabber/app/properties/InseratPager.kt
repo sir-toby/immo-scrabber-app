@@ -39,8 +39,14 @@ data class PagerState(
 data class RemovedInserat(val inserat: Inserat, val index: Int)
 
 /**
+ * Nachladen, sobald weniger als so viele Inserate übrig sind: in der Wischliste unterhalb des
+ * sichtbaren Bereichs, im Kartenstapel insgesamt (Entscheidung #6).
+ */
+internal const val LOAD_MORE_THRESHOLD = 5
+
+/**
  * Eigener kleiner Pager (Entscheidung #10) für eine Liste Inserate, geteilt von Wischliste und
- * Kartenstapel; nur die Nachladeschwelle legt die UI fest.
+ * Kartenstapel. Wann nachgeladen wird, entscheiden sie selbst, beide mit [LOAD_MORE_THRESHOLD].
  *
  * - Seiten kommen über [loadPage]; der Cursor steckt im [InseratPage.nextCursor], eine Seite
  *   unter der Seitengröße (kein Cursor) bedeutet Ende.
@@ -49,7 +55,7 @@ data class RemovedInserat(val inserat: Inserat, val index: Int)
  * - [loadMore] ist für den automatischen Auslöser beim Scrollen gedacht und tut nichts, solange
  *   geladen wird, das Ende erreicht ist oder der letzte Versuch scheiterte; dafür gibt es [retry].
  * - Keine ID steht je doppelt in der Liste (Schlüssel in LazyColumn und Kartenstapel), auch wenn
- *   Seiten sich überlappen; eine Folgeseite ohne neue Einträge gilt als Ende.
+ *   Seiten sich überlappen; eine Folgeseite ohne neue Einträge gilt als Ende (siehe `stalled`).
  * - [remove]/[restore]/[update] ändern die geladene Liste optimistisch (Bewerten, Rückgängig),
  *   ohne den Cursor zu berühren.
  */
@@ -104,7 +110,12 @@ class InseratPager(
     private fun PagerState.withPage(kind: LoadKind, page: InseratPage): PagerState {
         val base = if (kind == LoadKind.Refresh) emptyList() else items
         val merged = base.appendNew(page.inserate)
-        // Bringt eine Folgeseite nichts Neues, rückt der Cursor nicht vor: Ende statt endlos nachladen.
+        // Schutzregel: Bringt eine Folgeseite nichts Neues, gilt die Liste als zu Ende, statt endlos
+        // dieselbe Seite nachzuladen. Ursache ist ein Backend-Fehler (immo-scrabber#145,
+        // https://github.com/sir-toby/immo-scrabber/issues/145): SQLite speichert `created_at` in
+        // Sekunden, der Cursor wird mit Mikrosekunden verglichen, deshalb kommen alle Inserate einer
+        // Sekunde auf jeder Folgeseite wieder. Die Regel kürzt dann die Liste ohne Hinweis; sie
+        // verhindert nur das Endlosladen, sie behebt den Fehler nicht.
         val stalled = kind == LoadKind.Append && merged.size == items.size
         val end = page.nextCursor == null || stalled
         return PagerState(merged, page.nextCursor.takeUnless { end }, end, LoadState.Idle, loaded = true)
@@ -146,7 +157,8 @@ class InseratPager(
     /**
      * Hängt nur Inserate an, die weder in der Liste noch weiter vorn auf der Seite stehen. Keine
      * ID darf doppelt vorkommen (sie ist Schlüssel in LazyColumn und Kartenstapel); Seiten können
-     * sich aber überlappen, etwa wenn der Server-Cursor bei gleichen `created_at` nicht vorrückt.
+     * sich aber überlappen, solange der Server-Cursor Inserate derselben Sekunde wiederholt
+     * (immo-scrabber#145, siehe `stalled` in [withPage]).
      */
     private fun List<Inserat>.appendNew(page: List<Inserat>): List<Inserat> {
         val known = mapTo(HashSet()) { it.id }

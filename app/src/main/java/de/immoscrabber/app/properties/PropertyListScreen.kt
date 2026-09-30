@@ -69,9 +69,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 
-/** Nachladen, sobald weniger als so viele Einträge unterhalb des sichtbaren Bereichs liegen. */
-private const val LOAD_MORE_THRESHOLD = 5
-
 /**
  * Tab eines Immobilientyps. Das ViewModel hängt am Back-Stack-Eintrag des Tabs; Filter und
  * Liste überleben so Tab-Wechsel und Drehen.
@@ -96,7 +93,7 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
         ratedFavorite = stringResource(R.string.rated_favorite),
         ratedArchive = stringResource(R.string.rated_archive),
         undo = stringResource(R.string.undo),
-        ratingFailed = stringResource(R.string.rating_failed),
+        bewertungFehlgeschlagen = stringResource(R.string.rating_failed),
         retry = stringResource(R.string.retry),
         undoFailed = stringResource(R.string.undo_failed),
         noLink = stringResource(R.string.no_link),
@@ -205,38 +202,28 @@ private fun ListContent(
 ) {
     val pager = state.pager
     val loadState = pager.loadState
+    // Noch nichts zu zeigen: Die erste Seite fehlt, oder der Kartenstapel ist leer, aber es gibt
+    // weitere Seiten. Das Laden läuft dann oder ist gescheitert.
+    val waiting = !pager.loaded || (state.filter == Filter.Neu && pager.items.isEmpty() && !pager.endReached)
     when {
-        !pager.loaded && loadState is LoadState.Failed ->
-            if (loadState.error is ApiError.BadRequest) {
-                // 400 nur ohne jedes Suchprofil; den Button zum Editor bringt dessen Ticket.
-                MessageState(
-                    title = stringResource(R.string.no_search_profile_title),
-                    text = stringResource(R.string.no_search_profile_text),
-                )
-            } else {
-                MessageState(
-                    title = stringResource(R.string.load_failed, typeName),
-                    action = stringResource(R.string.retry) to viewModel::retryLoading,
-                )
-            }
-        !pager.loaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // 400 nur ohne jedes Suchprofil; den Button zum Editor bringt dessen Ticket.
+        !pager.loaded && loadState is LoadState.Failed && loadState.error is ApiError.BadRequest ->
+            MessageState(
+                title = stringResource(R.string.no_search_profile_title),
+                text = stringResource(R.string.no_search_profile_text),
+            )
+        waiting && loadState is LoadState.Failed -> MessageState(
+            title = stringResource(R.string.load_failed, typeName),
+            action = stringResource(R.string.retry) to viewModel::retryLoading,
+        )
+        waiting -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
-        // Kartenstapel leer, aber es gibt weitere Seiten: Nachladen läuft oder ist gescheitert.
-        state.filter == Filter.Neu && pager.items.isEmpty() && !pager.endReached ->
-            if (loadState is LoadState.Failed) {
-                MessageState(
-                    title = stringResource(R.string.load_failed, typeName),
-                    action = stringResource(R.string.retry) to viewModel::retryLoading,
-                )
-            } else {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            }
         pager.items.isEmpty() -> EmptyState(state.filter, typeName)
         state.filter == Filter.Neu -> Kartenstapel(
             items = pager.items,
             moreAvailable = !pager.endReached,
-            onRate = viewModel::rate,
+            onBewerten = viewModel::bewerten,
             onSkip = viewModel::skip,
             onOpen = viewModel::open,
         )
@@ -245,7 +232,7 @@ private fun ListContent(
             filter = state.filter,
             loadState = loadState,
             listState = listState,
-            onRate = viewModel::rate,
+            onBewerten = viewModel::bewerten,
             onOpen = viewModel::open,
             onLoadMore = viewModel::loadMore,
             onRetry = viewModel::retryLoading,
@@ -286,7 +273,7 @@ private fun Wischliste(
     filter: Filter,
     loadState: LoadState,
     listState: LazyListState,
-    onRate: (Inserat, Label) -> Unit,
+    onBewerten: (Inserat, Label) -> Unit,
     onOpen: (Inserat) -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
@@ -308,7 +295,7 @@ private fun Wischliste(
                 SwipeableInseratRow(
                     inserat = inserat,
                     filter = filter,
-                    onRate = { label -> onRate(inserat, label) },
+                    onBewerten = { label -> onBewerten(inserat, label) },
                     onClick = { onOpen(inserat) },
                 )
                 HorizontalDivider()
@@ -380,7 +367,7 @@ private class SnackbarTexts(
     val ratedFavorite: String,
     val ratedArchive: String,
     val undo: String,
-    val ratingFailed: String,
+    val bewertungFehlgeschlagen: String,
     val retry: String,
     val undoFailed: String,
     val noLink: String,
@@ -396,13 +383,13 @@ private suspend fun handleEvent(
     context: Context,
 ) {
     when (event) {
-        is ListEvent.Rated -> {
+        is ListEvent.Bewertet -> {
             val message = if (event.label == Label.INTERESSANT) texts.ratedFavorite else texts.ratedArchive
             val result = snackbarHostState.showSnackbar(message, texts.undo, duration = SnackbarDuration.Short)
             if (result == SnackbarResult.ActionPerformed) viewModel.undo(event)
         }
-        is ListEvent.RatingFailed -> {
-            val result = snackbarHostState.showSnackbar(texts.ratingFailed, texts.retry, duration = SnackbarDuration.Long)
+        is ListEvent.BewertungFehlgeschlagen -> {
+            val result = snackbarHostState.showSnackbar(texts.bewertungFehlgeschlagen, texts.retry, duration = SnackbarDuration.Long)
             if (result == SnackbarResult.ActionPerformed) viewModel.retry(event)
         }
         ListEvent.UndoFailed -> snackbarHostState.showSnackbar(texts.undoFailed)
