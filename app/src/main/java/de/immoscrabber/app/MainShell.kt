@@ -30,9 +30,10 @@ import androidx.navigation.compose.rememberNavController
 import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.session.Session
 import de.immoscrabber.app.properties.PropertyTab
-import de.immoscrabber.app.properties.icon
+import de.immoscrabber.app.core.ui.icon
 import de.immoscrabber.app.properties.pluralName
-import de.immoscrabber.app.settings.SettingsPlaceholderScreen
+import de.immoscrabber.app.settings.KontoInfo
+import de.immoscrabber.app.settings.SettingsTab
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KClass
 
@@ -64,7 +65,7 @@ private enum class TopTab(val route: Any, @param:StringRes val title: Int, val i
  * Scrollposition); Zurück führt von jedem Tab erst zu „Häuser“, dann aus der App.
  */
 @Composable
-fun MainShell(session: Session) {
+fun MainShell(session: Session, logout: suspend () -> Unit) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
@@ -105,7 +106,16 @@ fun MainShell(session: Session) {
             composable<HaeuserTab> { PropertyTab(PropertyType.HOUSE, session.inserate) }
             composable<WohnungenTab> { PropertyTab(PropertyType.FLAT, session.inserate) }
             composable<GrundstueckeTab> { PropertyTab(PropertyType.SITE, session.inserate) }
-            composable<EinstellungenTab> { SettingsPlaceholderScreen() }
+            composable<EinstellungenTab> {
+                SettingsTab(
+                    repository = session.suchprofile,
+                    konto = KontoInfo(session.username, session.baseUrl, BuildConfig.VERSION_NAME),
+                    logout = logout,
+                    // TODO(#32): Suchprofil-Editor als Vollbild-Route öffnen (neu bzw. mit diesem Profil).
+                    onNeuesSuchprofil = {},
+                    onSuchprofilOeffnen = {},
+                )
+            }
         }
     }
 }

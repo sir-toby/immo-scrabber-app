@@ -35,6 +35,7 @@ import de.immoscrabber.app.R
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.Label
 import de.immoscrabber.app.core.model.PropertyType
+import de.immoscrabber.app.core.ui.icon
 import de.immoscrabber.app.core.ui.theme.ImmoFinderTheme
 import de.immoscrabber.app.core.ui.theme.immoColors
 
