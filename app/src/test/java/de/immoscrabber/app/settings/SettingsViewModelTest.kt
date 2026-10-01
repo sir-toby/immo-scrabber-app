@@ -186,4 +186,24 @@ class SettingsViewModelTest {
 
         assertEquals(1, logouts)
     }
+
+    @Test
+    fun `während des Abmeldens zeigt der Zustand es an und weitere Taps zählen nicht`() = runTest(dispatcher) {
+        repository.suchprofile.value = emptyList()
+        val fertig = CompletableDeferred<Unit>()
+        var aufrufe = 0
+        val vm = SettingsViewModel(repository, logout = { aufrufe++; fertig.await() })
+        runCurrent()
+
+        vm.abmelden()
+        vm.abmelden()
+        runCurrent()
+
+        assertTrue(vm.state.value.abmelden)
+        assertEquals(1, aufrufe)
+
+        fertig.complete(Unit)
+        runCurrent()
+        assertFalse(vm.state.value.abmelden)
+    }
 }

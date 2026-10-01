@@ -35,6 +35,8 @@ data class SettingsUiState(
     val suchprofile: SuchprofileState = SuchprofileState.Laden,
     /** Pull-to-Refresh läuft; die alte Liste bleibt solange stehen. */
     val refreshing: Boolean = false,
+    /** Logout läuft (Gerät abmelden dauert bis zu 3 s): Dialog zeigt Fortschritt, weitere Taps zählen nicht. */
+    val abmelden: Boolean = false,
 )
 
 sealed interface SettingsEvent {
@@ -55,9 +57,14 @@ class SettingsViewModel(
     private val logout: suspend () -> Unit,
 ) : ViewModel() {
     private val status = MutableStateFlow(Ladestatus.Ruhe)
+    private val abmeldenLaeuft = MutableStateFlow(false)
 
-    val state: StateFlow<SettingsUiState> = combine(repository.suchprofile, status, ::uiState)
-        .stateIn(viewModelScope, SharingStarted.Eagerly, uiState(repository.suchprofile.value, status.value))
+    val state: StateFlow<SettingsUiState> = combine(repository.suchprofile, status, abmeldenLaeuft, ::uiState)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            uiState(repository.suchprofile.value, status.value, abmeldenLaeuft.value),
+        )
 
     private val _events = Channel<SettingsEvent>(Channel.BUFFERED)
     val events: Flow<SettingsEvent> = _events.receiveAsFlow()
@@ -79,8 +86,16 @@ class SettingsViewModel(
         load(if (repository.suchprofile.value == null) Ladestatus.ErstesLaden else Ladestatus.Aktualisieren)
     }
 
+    /** Nur einmal gleichzeitig; ein zweiter Tap während des Logouts wird ignoriert. */
     fun abmelden() {
-        viewModelScope.launch { logout() }
+        if (!abmeldenLaeuft.compareAndSet(expect = false, update = true)) return
+        viewModelScope.launch {
+            try {
+                logout()
+            } finally {
+                abmeldenLaeuft.value = false
+            }
+        }
     }
 
     private fun load(kind: Ladestatus) {
@@ -99,11 +114,12 @@ class SettingsViewModel(
     }
 }
 
-private fun uiState(profile: List<Suchprofil>?, status: Ladestatus) = SettingsUiState(
+private fun uiState(profile: List<Suchprofil>?, status: Ladestatus, abmelden: Boolean) = SettingsUiState(
     suchprofile = when {
         profile != null -> SuchprofileState.Geladen(sortiereSuchprofile(profile))
         status == Ladestatus.ErstesLadenFehlgeschlagen -> SuchprofileState.Fehler
         else -> SuchprofileState.Laden
     },
     refreshing = status == Ladestatus.Aktualisieren,
+    abmelden = abmelden,
 )

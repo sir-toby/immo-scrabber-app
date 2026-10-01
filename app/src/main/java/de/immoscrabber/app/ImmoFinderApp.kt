@@ -15,11 +15,13 @@ class ImmoFinderApp : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.benachrichtigungen.channelsAnlegen()
     }
 
     /** Coil lädt Anbieterbilder über den Client ohne Auth aus dem [AppContainer]. */
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
             .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.imageHttpClient })) }
-            .crossfade(true)            .build()
+            .crossfade(true)
+            .build()
 }

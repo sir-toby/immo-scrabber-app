@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "134501481313",
+    "project_id": "immo-scrabber",
+    "storage_bucket": "immo-scrabber.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:134501481313:android:14c0ed1d888534c5e26320",
+        "android_client_info": {
+          "package_name": "de.immoscrabber.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUNw0MPlTojEVijVJjIoz2eEpk5hRNgvg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:134501481313:android:e82a5a1d89cd995de26320",
+        "android_client_info": {
+          "package_name": "de.immoscrabber.app.debug"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUNw0MPlTojEVijVJjIoz2eEpk5hRNgvg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
