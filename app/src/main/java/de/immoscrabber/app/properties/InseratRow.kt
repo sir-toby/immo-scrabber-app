@@ -1,7 +1,7 @@
 package de.immoscrabber.app.properties
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,14 +42,22 @@ import de.immoscrabber.app.core.ui.theme.immoColors
 /**
  * Zeile der Wischliste (Entscheidung #6): Thumbnail, Preis, Titel (einzeilig), „PLZ Ort ·
  * Eckdaten“, darunter Quelle und Energieklasse; mit [showLabel] (nur „Alle“) das Label-Badge.
+ * [onLongClick] (mit [onLongClickLabel] für TalkBack) öffnet das Zeilenmenü (#14), sofern es eins gibt.
  */
 @Composable
-fun InseratRow(inserat: Inserat, showLabel: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun InseratRow(
+    inserat: Inserat,
+    showLabel: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = onLongClickLabel)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
