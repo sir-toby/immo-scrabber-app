@@ -2,16 +2,20 @@ package de.immoscrabber.app.properties
 
 import androidx.lifecycle.SavedStateHandle
 import de.immoscrabber.app.core.data.InseratRepository
+import de.immoscrabber.app.core.data.SuchprofilRepository
 import de.immoscrabber.app.core.data.VeraltetMerker
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.InseratPage
 import de.immoscrabber.app.core.model.Label
 import de.immoscrabber.app.core.model.PageCursor
 import de.immoscrabber.app.core.model.PropertyType
+import de.immoscrabber.app.core.model.Suchprofil
+import de.immoscrabber.app.core.model.SuchprofilInput
 import de.immoscrabber.app.core.network.ApiError
 import de.immoscrabber.app.core.network.ApiResult
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import kotlin.time.Duration
@@ -22,7 +26,42 @@ fun testViewModel(
     veraltet: VeraltetMerker = VeraltetMerker(now = { Duration.ZERO }, threshold = Duration.INFINITE),
     savedState: SavedStateHandle = SavedStateHandle(),
     type: PropertyType = PropertyType.HOUSE,
-) = PropertyListViewModel(type, repository, veraltet, savedState)
+    suchprofile: SuchprofilRepository = FakeSuchprofile(PropertyType.entries.map(::suchprofil)),
+) = PropertyListViewModel(type, repository, suchprofile, veraltet, savedState)
+
+fun suchprofil(type: PropertyType) = Suchprofil(
+    id = type.apiValue,
+    propertyType = type,
+    city = "Erlangen",
+    zipCode = "91054",
+    radius = 20,
+    ausgeschlosseneAnbieter = emptyList(),
+    excludedSources = emptyList(),
+    priceLimit = null,
+    minRooms = null,
+    minConstructionYear = null,
+    maxConstructionYear = null,
+    minArea = null,
+)
+
+/**
+ * Suchprofile der Sitzung: [suchprofile] ist der Speicher (`null` = nie geladen),
+ * [laden] liefert [ladenResult] und zählt die Aufrufe.
+ */
+class FakeSuchprofile(initial: List<Suchprofil>? = null) : SuchprofilRepository {
+    override val suchprofile = MutableStateFlow(initial)
+    var ladenResult: ApiResult<List<Suchprofil>> = ApiResult.Success(emptyList())
+    var ladenCalls = 0
+
+    override suspend fun laden(): ApiResult<List<Suchprofil>> {
+        ladenCalls++
+        return ladenResult.also { if (it is ApiResult.Success) suchprofile.value = it.value }
+    }
+
+    override suspend fun speichern(id: String?, input: SuchprofilInput) = error("nicht im Tab")
+
+    override suspend fun loeschen(profil: Suchprofil) = error("nicht im Tab")
+}
 
 fun inserat(
     id: String,

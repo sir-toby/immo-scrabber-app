@@ -66,6 +66,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import de.immoscrabber.app.R
 import de.immoscrabber.app.core.data.InseratRepository
+import de.immoscrabber.app.core.data.SuchprofilRepository
 import de.immoscrabber.app.core.data.VeraltetMerker
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.Label
@@ -84,13 +85,14 @@ import kotlinx.coroutines.flow.filter
 fun PropertyTab(
     type: PropertyType,
     repository: InseratRepository,
+    suchprofile: SuchprofilRepository,
     veraltet: VeraltetMerker,
     onSuchprofilAnlegen: () -> Unit,
 ) {
     val viewModel: PropertyListViewModel = viewModel(
         key = "properties-${type.apiValue}",
         factory = viewModelFactory {
-            initializer { PropertyListViewModel(type, repository, veraltet, createSavedStateHandle()) }
+            initializer { PropertyListViewModel(type, repository, suchprofile, veraltet, createSavedStateHandle()) }
         },
     )
     // Nur der sichtbare Tab im Vordergrund lädt bei „Veraltet“ sofort neu; die anderen beim nächsten Besuch.
@@ -242,11 +244,7 @@ private fun ListContent(
         // 400 nur ohne jedes Suchprofil (Entscheidung #8): Editor mit dem Typ dieses Tabs. Auch wenn
         // schon eine Liste stand (das letzte Suchprofil wurde gelöscht), sie passt dann nicht mehr.
         loadState.keinSuchprofil ->
-            MessageState(
-                title = stringResource(R.string.no_search_profile_title),
-                text = stringResource(R.string.no_search_profile_text),
-                action = stringResource(R.string.no_search_profile_create) to onSuchprofilAnlegen,
-            )
+            KeinSuchprofilState(stringResource(R.string.no_search_profile_title), onSuchprofilAnlegen)
         waiting && loadState is LoadState.Failed -> MessageState(
             title = stringResource(R.string.load_failed, typeName),
             action = stringResource(R.string.retry) to viewModel::retryLoading,
@@ -254,6 +252,12 @@ private fun ListContent(
         waiting -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
+        // Leer, weil es für diesen Typ kein Suchprofil gibt (#13); die anderen Typen haben eins.
+        pager.items.isEmpty() && state.suchprofilePruefen -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        pager.items.isEmpty() && state.keinSuchprofilFuerTyp ->
+            KeinSuchprofilState(stringResource(R.string.no_search_profile_for_type_title, typeName), onSuchprofilAnlegen)
         pager.items.isEmpty() -> EmptyState(state.filter, typeName)
         state.filter == Filter.Neu -> Kartenstapel(
             items = pager.items,
@@ -352,6 +356,14 @@ private fun Wischliste(
         }
     }
 }
+
+/** „Noch kein Suchprofil“ bzw. „Kein Suchprofil für Grundstücke“: Editor mit dem Typ dieses Tabs. */
+@Composable
+private fun KeinSuchprofilState(title: String, onSuchprofilAnlegen: () -> Unit) = MessageState(
+    title = title,
+    text = stringResource(R.string.no_search_profile_text),
+    action = stringResource(R.string.no_search_profile_create) to onSuchprofilAnlegen,
+)
 
 @Composable
 private fun EmptyState(filter: Filter, typeName: String) = when (filter) {

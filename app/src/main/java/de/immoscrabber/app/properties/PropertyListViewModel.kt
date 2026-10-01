@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.immoscrabber.app.core.data.InseratRepository
+import de.immoscrabber.app.core.data.SuchprofilRepository
 import de.immoscrabber.app.core.data.VeraltetMerker
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.Label
@@ -19,6 +20,10 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -66,7 +71,17 @@ data class ListScroll(val index: Int = 0, val offset: Int = 0)
 data class PropertyListUiState(
     val filter: Filter = Filter.Neu,
     val pager: PagerState = PagerState(),
+    /**
+     * Die Liste ist leer und es gibt Suchprofile, aber keins für diesen Typ: „Kein Suchprofil für
+     * Grundstücke“ statt des normalen Leerzustands (#13).
+     */
+    val keinSuchprofilFuerTyp: Boolean = false,
+    /** Die Liste ist leer und die Suchprofile werden gerade erstmals geladen (Spinner statt Leerzustand). */
+    val suchprofilePruefen: Boolean = false,
 )
+
+/** Vollständig geladen und leer (nicht nur noch leer, weil die erste Seite fehlt). */
+private val PagerState.leer: Boolean get() = loaded && endReached && items.isEmpty()
 
 /**
  * Ein Tab für einen Immobilientyp: Filter, Liste des aktiven Filters, Bewerten.
@@ -74,10 +89,15 @@ data class PropertyListUiState(
  *
  * Zustand über das Beenden durch das System (Entscheidung #10): Nur der Filter steht in
  * [savedState]; Liste und Scrollposition leben im ViewModel und beginnen danach von oben.
+ *
+ * @param suchprofile die Suchprofile der Sitzung; nur für den Leerzustand „Kein Suchprofil für …“.
+ *   Der Tab nutzt deren Speicher und lädt nur, solange sie nie geladen wurden. Speichern/Löschen im
+ *   Editor lädt sie dort neu und setzt den Veraltet-Merker, so bleibt der Tab aktuell.
  */
 class PropertyListViewModel(
     val type: PropertyType,
     private val repository: InseratRepository,
+    private val suchprofile: SuchprofilRepository,
     private val veraltet: VeraltetMerker,
     private val savedState: SavedStateHandle,
 ) : ViewModel() {
@@ -99,9 +119,47 @@ class PropertyListViewModel(
     /** Scrollposition der Wischliste des aktuellen Filters; ein Filterwechsel beginnt oben. */
     private var scroll = ListScroll()
 
+    private val suchprofilePruefen = MutableStateFlow(false)
+
     init {
         val saved = savedState.get<String>(FILTER_KEY)
         startPager(Filter.entries.firstOrNull { it.name == saved } ?: Filter.Neu)
+        beobachteSuchprofile()
+    }
+
+    /**
+     * „Kein Suchprofil für …“ nur bei leerer Liste. Ist der Speicher der Suchprofile noch leer, holt
+     * jedes leer abgeschlossene Laden sie einmal; scheitert das (Netz), bleibt der normale
+     * Leerzustand, ohne eigene Fehlermeldung.
+     */
+    private fun beobachteSuchprofile() {
+        viewModelScope.launch {
+            _state.map { it.pager.leer && it.pager.loadState == LoadState.Idle }
+                .distinctUntilChanged()
+                .filter { it }
+                .collect {
+                    if (suchprofile.suchprofile.value == null && !suchprofilePruefen.value) {
+                        suchprofilePruefen.value = true
+                        launch {
+                            suchprofile.laden()
+                            suchprofilePruefen.value = false
+                        }
+                    }
+                }
+        }
+        viewModelScope.launch {
+            combine(
+                _state.map { it.pager.leer }.distinctUntilChanged(),
+                suchprofile.suchprofile,
+                suchprofilePruefen,
+            ) { leer, profile, pruefen ->
+                // Profile ohne Typ zählen vorsichtshalber als passend: dann der normale Leerzustand.
+                val fehlt = leer && profile != null && profile.none { it.propertyType == type || it.propertyType == null }
+                fehlt to (leer && pruefen)
+            }.collect { (fehlt, pruefen) ->
+                _state.update { it.copy(keinSuchprofilFuerTyp = fehlt, suchprofilePruefen = pruefen) }
+            }
+        }
     }
 
     /** Filterwechsel lädt frisch (Entscheidung #10); die alte Liste und ihre Ladevorgänge verfallen. */
@@ -128,7 +186,7 @@ class PropertyListViewModel(
      */
     suspend fun watchStale() {
         veraltet.stale.collect { stale ->
-            if (type in stale && veraltet.consume(type)) pager.refresh()
+            if (type in stale && veraltet.consume(type)) neuLaden()
         }
     }
 
@@ -217,7 +275,17 @@ class PropertyListViewModel(
     }
 
     /** Pull-to-Refresh: verwirft den Cursor und lädt von oben. */
-    fun refresh() = pager.refresh()
+    fun refresh() = neuLaden()
+
+    /**
+     * Liste von oben neu laden (Pull-to-Refresh, Veraltet). Steht „Kein Suchprofil für …“, holt es
+     * auch die Suchprofile neu: Das fehlende Profil kann inzwischen im Web angelegt worden sein,
+     * oder das Neuladen nach dem Speichern im Editor ist gescheitert.
+     */
+    private fun neuLaden() {
+        if (_state.value.keinSuchprofilFuerTyp) viewModelScope.launch { suchprofile.laden() }
+        pager.refresh()
+    }
 
     /** Automatisches Nachladen kurz vor dem Listenende. */
     fun loadMore() = pager.loadMore()
@@ -245,7 +313,7 @@ class PropertyListViewModel(
         // Die Liste lädt ohnehin frisch; ein schon gesetzter Merker darf nicht ein zweites Mal laden.
         veraltet.consume(type)
         savedState[FILTER_KEY] = filter.name
-        _state.value = PropertyListUiState(filter, newPager.state.value)
+        _state.update { PropertyListUiState(filter, newPager.state.value, it.keinSuchprofilFuerTyp, it.suchprofilePruefen) }
         scope.launch {
             newPager.state.collect { pagerState ->
                 _state.update { it.copy(pager = pagerState) }

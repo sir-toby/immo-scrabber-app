@@ -39,6 +39,7 @@
     <string name="empty_all">Keine %1$s gefunden</string>
     <string name="load_failed">Konnte %1$s nicht laden</string>
     <string name="no_search_profile_title">Noch kein Suchprofil</string>
+    <string name="no_search_profile_for_type_title">Kein Suchprofil für %1$s</string>
     <string name="no_search_profile_text">Lege ein Suchprofil an, damit hier Inserate erscheinen.</string>
     <string name="retry">Erneut versuchen</string>
     <string name="badge_favorite">Favorit</string>
