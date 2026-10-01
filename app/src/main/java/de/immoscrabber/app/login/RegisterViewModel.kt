@@ -61,11 +61,13 @@ data class RegisterUiState(
  * Nach erfolgreicher Anmeldung wechselt der SessionManager auf angemeldet, die Navigation folgt.
  *
  * @param initialServerUrl der Server aus dem Login-Screen (geteilt zwischen beiden Screens).
+ * @param onServerUrlChange reicht jede Server-Eingabe an den Login weiter, damit sie Zurück übersteht.
  */
 class RegisterViewModel(
     private val session: SessionRegistration,
     initialServerUrl: String,
     private val allowLocalCleartext: Boolean,
+    private val onServerUrlChange: (String) -> Unit = {},
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RegisterUiState(serverUrl = initialServerUrl))
@@ -79,7 +81,10 @@ class RegisterViewModel(
 
     fun onTogglePasswordVisible() = _state.update { it.copy(passwordVisible = !it.passwordVisible) }
 
-    fun onServerUrlChange(value: String) = _state.update { it.copy(serverUrl = value, serverError = null, error = null) }
+    fun onServerUrlChange(value: String) {
+        _state.update { it.copy(serverUrl = value, serverError = null, error = null) }
+        onServerUrlChange.invoke(value)
+    }
 
     fun onToggleServerExpanded() = _state.update { it.copy(serverExpanded = !it.serverExpanded) }
 
@@ -93,13 +98,15 @@ class RegisterViewModel(
         }
         val username = current.username.trim()
         _state.update { it.copy(loading = true, error = null, serverUrl = baseUrl) }
+        onServerUrlChange.invoke(baseUrl)
         viewModelScope.launch {
             when (val registered = session.register(baseUrl, username, current.password)) {
                 is ApiResult.Failure -> _state.update { it.copy(loading = false, error = registered.error.toRegisterError()) }
                 is ApiResult.Success -> {
-                    val loggedIn = session.login(baseUrl, username, current.password) == LoginResult.Success
-                    _state.update {
-                        it.copy(loading = false, pleaseLogin = if (loggedIn) null else RegisteredUser(username, baseUrl))
+                    // Nach erfolgreicher Anmeldung lädt es weiter, bis die Navigation wechselt;
+                    // sonst ließe sich vorher noch einmal absenden (→ 409).
+                    if (session.login(baseUrl, username, current.password) != LoginResult.Success) {
+                        _state.update { it.copy(loading = false, pleaseLogin = RegisteredUser(username, baseUrl)) }
                     }
                 }
             }

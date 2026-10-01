@@ -53,16 +53,22 @@ fun ImmoFinderNavHost(container: AppContainer, initialState: SessionState) {
         }
         composable<RegisterRoute> { entry ->
             val route = entry.toRoute<RegisterRoute>()
-            val viewModel: RegisterViewModel = viewModel(
-                factory = viewModelFactory {
-                    initializer {
-                        RegisterViewModel(container.sessionManager, route.serverUrl, container.allowLocalCleartext)
-                    }
-                },
-            )
             // Der Login darunter ist derselbe wie vor dem Öffnen, seine Eingaben bleiben.
             val loginEntry = remember(entry) { navController.getBackStackEntry<LoginRoute>() }
             val loginViewModel: LoginViewModel = viewModel(loginEntry, factory = loginViewModelFactory(container))
+            val viewModel: RegisterViewModel = viewModel(
+                factory = viewModelFactory {
+                    initializer {
+                        RegisterViewModel(
+                            session = container.sessionManager,
+                            initialServerUrl = route.serverUrl,
+                            allowLocalCleartext = container.allowLocalCleartext,
+                            // Geteilter Server-Bereich: jede Änderung gilt auch für den Login.
+                            onServerUrlChange = loginViewModel::onServerUrlChange,
+                        )
+                    }
+                },
+            )
             RegisterScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },

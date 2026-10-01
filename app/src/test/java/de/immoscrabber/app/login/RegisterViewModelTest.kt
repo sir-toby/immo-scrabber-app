@@ -52,8 +52,11 @@ class RegisterViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
+    /** Was an den Login weitergereicht wurde (geteilter Server-Bereich). */
+    private val sharedServer = mutableListOf<String>()
+
     private fun viewModel(serverUrl: String = SERVER, allowLocalCleartext: Boolean = false) =
-        RegisterViewModel(session, serverUrl, allowLocalCleartext)
+        RegisterViewModel(session, serverUrl, allowLocalCleartext, onServerUrlChange = { sharedServer += it })
 
     private fun RegisterViewModel.fill(
         username: String = "neu",
@@ -147,6 +150,26 @@ class RegisterViewModelTest {
         assertEquals("http://10.0.2.2:5000/api/", session.calls.first().baseUrl)
     }
 
+    @Test
+    fun `jede Server-Eingabe geht auch an den Login, damit sie Zurück übersteht`() {
+        val vm = viewModel()
+
+        vm.onServerUrlChange("andere")
+        vm.onServerUrlChange("andere.example.com")
+
+        assertEquals(listOf("andere", "andere.example.com"), sharedServer)
+    }
+
+    @Test
+    fun `der normalisierte Server beim Absenden geht auch an den Login`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.fill(server = " andere.example.com ")
+
+        vm.submit()
+
+        assertEquals("https://andere.example.com/api/", sharedServer.last())
+    }
+
     // --- Registrieren und direkt anmelden ---
 
     @Test
@@ -166,6 +189,19 @@ class RegisterViewModelTest {
         )
         assertNull(vm.state.value.error)
         assertNull(vm.state.value.pleaseLogin)
+    }
+
+    @Test
+    fun `nach erfolgreicher Anmeldung bleibt es beim Laden, bis die Navigation wechselt`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.fill()
+
+        vm.submit()
+        vm.submit()
+
+        assertTrue(vm.state.value.loading)
+        assertFalse(vm.state.value.canSubmit)
+        assertEquals(listOf("register", "login"), session.calls.map { it.what })
     }
 
     @Test
