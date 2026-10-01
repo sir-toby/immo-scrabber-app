@@ -26,7 +26,6 @@
     <string name="tab_flats">Wohnungen</string>
     <string name="tab_sites">Grundstücke</string>
     <string name="tab_settings">Einstellungen</string>
-    <string name="tab_placeholder">Folgt in Kürze.</string>
 
     <!-- Tabs je Immobilientyp (Entscheidung #6); %1$s ist der Typ im Plural -->
     <string name="filter_new">Neu</string>
@@ -64,6 +63,21 @@
     <string name="cancel">Abbrechen</string>
     <string name="archive_all_new_confirm">Ins Archiv</string>
     <string name="archive_all_new_failed">Konnte %1$s nicht ins Archiv verschieben</string>
+    <!-- Einstellungen (Entscheidungen #7, #8) -->
+    <string name="settings_profiles_header">Suchprofile (%1$d/%2$d)</string>
+    <string name="settings_profiles_header_loading">Suchprofile</string>
+    <string name="settings_profiles_new">Neues Suchprofil</string>
+    <string name="settings_profiles_max">Maximal %1$d Suchprofile</string>
+    <string name="settings_profiles_load_failed">Suchprofile konnten nicht geladen werden</string>
+    <string name="settings_notifications_header">Benachrichtigungen</string>
+    <string name="settings_notifications_placeholder">Folgt mit den Push-Benachrichtigungen</string>
+    <string name="settings_account_header">Konto</string>
+    <string name="settings_account_logged_in">Angemeldet als %1$s auf %2$s</string>
+    <string name="settings_logout">Abmelden</string>
+    <string name="settings_logout_title">Abmelden?</string>
+    <string name="settings_logout_text">Du wirst auf diesem Gerät abgemeldet. Server und Benutzername bleiben für die nächste Anmeldung gespeichert.</string>
+    <string name="settings_app_version">Immo-Finder %1$s</string>
+
     <plurals name="archived_all_houses">
         <item quantity="one">%1$d Haus ins Archiv verschoben</item>
         <item quantity="other">%1$d Häuser ins Archiv verschoben</item>

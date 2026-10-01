@@ -3,6 +3,7 @@ package de.immoscrabber.app.core
 import android.content.Context
 import androidx.datastore.dataStoreFile
 import androidx.datastore.preferences.preferencesDataStore
+import coil3.SingletonImageLoader
 import de.immoscrabber.app.BuildConfig
 import de.immoscrabber.app.core.network.ApiClientFactory
 import de.immoscrabber.app.core.network.createImageHttpClient
@@ -11,10 +12,12 @@ import de.immoscrabber.app.core.session.EncryptedTokenStore
 import de.immoscrabber.app.core.session.Session
 import de.immoscrabber.app.core.session.SessionCrypto
 import de.immoscrabber.app.core.session.SessionManager
+import de.immoscrabber.app.core.session.SessionState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 
 /** Unverschlüsselter Speicher für Server und Username (Datei `datastore/session.preferences_pb`). */
@@ -62,5 +65,23 @@ class AppContainer(applicationContext: Context) {
 
     init {
         appScope.launch(Dispatchers.IO) { sessionManager.start() }
+        appScope.launch { clearImageCachesWhenSessionEnds(applicationContext) }
+    }
+
+    /**
+     * Logout und Sitzungsende leeren auch Coils Bildcache (Speicher und Platte), damit der nächste
+     * Nutzer keine fremden Inserate sieht (Entscheidung #10, Nachtrag in #31). Der Cache ist
+     * app-weit und hängt nicht an der [Session], deshalb hier am Übergang angemeldet → abgemeldet.
+     */
+    private suspend fun clearImageCachesWhenSessionEnds(context: Context) {
+        var previous: SessionState = SessionState.Loading
+        sessionManager.state.collect { state ->
+            if (previous is SessionState.LoggedIn && state is SessionState.LoggedOut) {
+                val imageLoader = SingletonImageLoader.get(context)
+                imageLoader.memoryCache?.clear()
+                withContext(Dispatchers.IO) { imageLoader.diskCache?.clear() }
+            }
+            previous = state
+        }
     }
 }

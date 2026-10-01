@@ -1,7 +1,9 @@
 package de.immoscrabber.app.core.session
 
 import de.immoscrabber.app.core.data.ApiInseratRepository
+import de.immoscrabber.app.core.data.ApiSuchprofilRepository
 import de.immoscrabber.app.core.data.InseratRepository
+import de.immoscrabber.app.core.data.SuchprofilRepository
 import de.immoscrabber.app.core.network.ApiClientFactory
 import de.immoscrabber.app.core.network.ApiError
 import de.immoscrabber.app.core.network.ApiResult
@@ -68,6 +70,9 @@ class Session internal constructor(
 ) {
     /** Inserate dieser Sitzung; ihre späteren Caches verschwinden mit der Sitzung. */
     val inserate: InseratRepository by lazy { ApiInseratRepository(api) }
+
+    /** Suchprofile dieser Sitzung, im Speicher bis zum Logout/Sitzungsende. */
+    val suchprofile: SuchprofilRepository by lazy { ApiSuchprofilRepository(api) }
 
     internal fun close() {
         tokens.close()

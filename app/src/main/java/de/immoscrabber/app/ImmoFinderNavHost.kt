@@ -51,7 +51,7 @@ fun ImmoFinderNavHost(container: AppContainer, initialState: SessionState) {
         composable<MainRoute> {
             // Beim Abmelden kann die Sitzung kurz vor dem Wechsel zum Login schon weg sein.
             val session = container.session ?: return@composable
-            MainShell(session)
+            MainShell(session, logout = container.sessionManager::logout)
         }
     }
 
