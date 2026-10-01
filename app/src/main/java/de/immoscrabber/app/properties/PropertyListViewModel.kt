@@ -186,7 +186,7 @@ class PropertyListViewModel(
      */
     suspend fun watchStale() {
         veraltet.stale.collect { stale ->
-            if (type in stale && veraltet.consume(type)) pager.refresh()
+            if (type in stale && veraltet.consume(type)) neuLaden()
         }
     }
 
@@ -275,7 +275,17 @@ class PropertyListViewModel(
     }
 
     /** Pull-to-Refresh: verwirft den Cursor und lädt von oben. */
-    fun refresh() = pager.refresh()
+    fun refresh() = neuLaden()
+
+    /**
+     * Liste von oben neu laden (Pull-to-Refresh, Veraltet). Steht „Kein Suchprofil für …“, holt es
+     * auch die Suchprofile neu: Das fehlende Profil kann inzwischen im Web angelegt worden sein,
+     * oder das Neuladen nach dem Speichern im Editor ist gescheitert.
+     */
+    private fun neuLaden() {
+        if (_state.value.keinSuchprofilFuerTyp) viewModelScope.launch { suchprofile.laden() }
+        pager.refresh()
+    }
 
     /** Automatisches Nachladen kurz vor dem Listenende. */
     fun loadMore() = pager.loadMore()

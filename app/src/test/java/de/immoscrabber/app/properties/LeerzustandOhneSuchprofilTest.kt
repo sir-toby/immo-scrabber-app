@@ -1,9 +1,12 @@
 package de.immoscrabber.app.properties
 
 import de.immoscrabber.app.core.data.VeraltetMerker
+import de.immoscrabber.app.core.model.InseratPage
 import de.immoscrabber.app.core.model.Label
+import de.immoscrabber.app.core.model.PageCursor
 import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.network.ApiResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -64,6 +67,71 @@ class LeerzustandOhneSuchprofilTest {
         val vm = grundstuecke(FakeSuchprofile(listOf(suchprofil(PropertyType.HOUSE))))
 
         assertFalse(vm.state.value.keinSuchprofilFuerTyp)
+    }
+
+    @Test
+    fun `solange die erste Seite lädt, kein Hinweis`() = runTest(dispatcher) {
+        repository.pages[Label.UNBEWERTET] = page(IntRange.EMPTY)
+        repository.pageGate = CompletableDeferred()
+
+        val vm = grundstuecke(FakeSuchprofile(listOf(suchprofil(PropertyType.HOUSE))))
+
+        assertFalse(vm.state.value.keinSuchprofilFuerTyp)
+    }
+
+    @Test
+    fun `leere Seite mit weiteren Seiten zeigt keinen Hinweis`() = runTest(dispatcher) {
+        repository.pages[Label.UNBEWERTET] = page(1..2)
+        repository.pages[Label.INTERESSANT] = ApiResult.Success(InseratPage(emptyList(), PageCursor("t9", "9")))
+        val vm = grundstuecke(FakeSuchprofile(listOf(suchprofil(PropertyType.HOUSE))))
+
+        vm.selectFilter(Filter.Favoriten)
+        runCurrent()
+
+        assertFalse(vm.state.value.keinSuchprofilFuerTyp)
+    }
+
+    @Test
+    fun `Pull-to-Refresh holt beim Hinweis die Suchprofile neu`() = runTest(dispatcher) {
+        repository.pages[Label.UNBEWERTET] = page(IntRange.EMPTY)
+        val suchprofile = FakeSuchprofile(listOf(suchprofil(PropertyType.HOUSE)))
+        val vm = grundstuecke(suchprofile)
+        assertTrue(vm.state.value.keinSuchprofilFuerTyp)
+
+        // Im Web angelegt: Die Liste bleibt (noch) leer, das Profil gibt es jetzt.
+        suchprofile.ladenResult = ApiResult.Success(listOf(suchprofil(PropertyType.HOUSE), suchprofil(PropertyType.SITE)))
+        vm.refresh()
+        runCurrent()
+
+        assertEquals(1, suchprofile.ladenCalls)
+        assertFalse(vm.state.value.keinSuchprofilFuerTyp)
+    }
+
+    @Test
+    fun `Veraltet holt beim Hinweis die Suchprofile neu`() = runTest(dispatcher) {
+        repository.pages[Label.UNBEWERTET] = page(IntRange.EMPTY)
+        val suchprofile = FakeSuchprofile(listOf(suchprofil(PropertyType.HOUSE)))
+        val vm = grundstuecke(suchprofile)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.watchStale() }
+
+        suchprofile.ladenResult = ApiResult.Success(listOf(suchprofil(PropertyType.HOUSE), suchprofil(PropertyType.SITE)))
+        veraltet.markStale(PropertyType.SITE)
+        runCurrent()
+
+        assertEquals(1, suchprofile.ladenCalls)
+        assertFalse(vm.state.value.keinSuchprofilFuerTyp)
+    }
+
+    @Test
+    fun `Pull-to-Refresh ohne Hinweis lädt die Suchprofile nicht`() = runTest(dispatcher) {
+        repository.pages[Label.UNBEWERTET] = page(1..2)
+        val suchprofile = FakeSuchprofile(listOf(suchprofil(PropertyType.SITE)))
+        val vm = grundstuecke(suchprofile)
+
+        vm.refresh()
+        runCurrent()
+
+        assertEquals(0, suchprofile.ladenCalls)
     }
 
     @Test
