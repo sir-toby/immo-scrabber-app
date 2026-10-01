@@ -1,9 +1,12 @@
 package de.immoscrabber.app.core.session
 
+import android.os.SystemClock
+import de.immoscrabber.app.BuildConfig
 import de.immoscrabber.app.core.data.ApiInseratRepository
 import de.immoscrabber.app.core.data.ApiSuchprofilRepository
 import de.immoscrabber.app.core.data.InseratRepository
 import de.immoscrabber.app.core.data.SuchprofilRepository
+import de.immoscrabber.app.core.data.VeraltetMerker
 import de.immoscrabber.app.core.network.ApiClientFactory
 import de.immoscrabber.app.core.network.ApiError
 import de.immoscrabber.app.core.network.ApiResult
@@ -18,6 +21,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /** Anmeldezustand der App. */
 sealed interface SessionState {
@@ -73,6 +78,18 @@ class Session internal constructor(
 
     /** Suchprofile dieser Sitzung, im Speicher bis zum Logout/Sitzungsende. */
     val suchprofile: SuchprofilRepository by lazy { ApiSuchprofilRepository(api) }
+
+    /**
+     * „Veraltet“-Merker je Immobilientyp (Entscheidung #10). Der Suchprofil-Editor (#32) ruft nach
+     * jedem Speichern/Löschen `veraltet.markStale(type)`. Die Schwelle ist 30 Minuten; nur im
+     * Debug-Build lässt sie sich mit `-Pimmo.staleAfterSeconds=<n>` verkürzen.
+     */
+    val veraltet: VeraltetMerker by lazy {
+        VeraltetMerker(
+            now = { SystemClock.elapsedRealtime().milliseconds },
+            threshold = BuildConfig.STALE_AFTER_SECONDS.seconds,
+        )
+    }
 
     internal fun close() {
         tokens.close()

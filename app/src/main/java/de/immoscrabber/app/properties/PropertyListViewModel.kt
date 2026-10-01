@@ -1,8 +1,10 @@
 package de.immoscrabber.app.properties
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.immoscrabber.app.core.data.InseratRepository
+import de.immoscrabber.app.core.data.VeraltetMerker
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.Label
 import de.immoscrabber.app.core.model.PropertyType
@@ -55,6 +57,12 @@ sealed interface ListEvent {
     data object BulkArchiveFailed : ListEvent
 }
 
+/** Schlüssel des Filters im [SavedStateHandle]; überlebt so das Beenden durch das System. */
+internal const val FILTER_KEY = "filter"
+
+/** Scrollposition einer Wischliste (erster sichtbarer Eintrag und sein Versatz in Pixeln). */
+data class ListScroll(val index: Int = 0, val offset: Int = 0)
+
 data class PropertyListUiState(
     val filter: Filter = Filter.Neu,
     val pager: PagerState = PagerState(),
@@ -63,10 +71,15 @@ data class PropertyListUiState(
 /**
  * Ein Tab für einen Immobilientyp: Filter, Liste des aktiven Filters, Bewerten.
  * Je Tab eine Instanz (am Back-Stack-Eintrag des Tabs), deshalb überlebt sie Tab-Wechsel und Drehen.
+ *
+ * Zustand über das Beenden durch das System (Entscheidung #10): Nur der Filter steht in
+ * [savedState]; Liste und Scrollposition leben im ViewModel und beginnen danach von oben.
  */
 class PropertyListViewModel(
     val type: PropertyType,
     private val repository: InseratRepository,
+    private val veraltet: VeraltetMerker,
+    private val savedState: SavedStateHandle,
 ) : ViewModel() {
     private val _state = MutableStateFlow(PropertyListUiState())
     val state: StateFlow<PropertyListUiState> = _state.asStateFlow()
@@ -83,14 +96,40 @@ class PropertyListViewModel(
     private lateinit var pager: InseratPager
     private var pagerScope: CoroutineScope? = null
 
+    /** Scrollposition der Wischliste des aktuellen Filters; ein Filterwechsel beginnt oben. */
+    private var scroll = ListScroll()
+
     init {
-        startPager(Filter.Neu)
+        val saved = savedState.get<String>(FILTER_KEY)
+        startPager(Filter.entries.firstOrNull { it.name == saved } ?: Filter.Neu)
     }
 
     /** Filterwechsel lädt frisch (Entscheidung #10); die alte Liste und ihre Ladevorgänge verfallen. */
     fun selectFilter(filter: Filter) {
         if (filter == _state.value.filter) return
         startPager(filter)
+    }
+
+    /** Wo die Wischliste von [filter] beginnt: an der gemerkten Stelle, sonst oben. */
+    fun scrollFor(filter: Filter): ListScroll = if (filter == _state.value.filter) scroll else ListScroll()
+
+    /**
+     * Merkt die Scrollposition, wenn die Wischliste die Komposition verlässt (Tab-Wechsel, Drehen,
+     * Filterwechsel). Gehört sie zu einem alten Filter, wird sie verworfen.
+     */
+    fun saveScroll(filter: Filter, position: ListScroll) {
+        if (filter == _state.value.filter) scroll = position
+    }
+
+    /**
+     * Läuft, solange der Tab sichtbar ist: Ist sein Typ veraltet (oder wird es), lädt die Liste
+     * neu wie bei Pull-to-Refresh, die alte bleibt bis dahin stehen; der Kartenstapel setzt sich
+     * dabei zurück (Entscheidung #10). Nicht sichtbare Tabs holen den Merker beim nächsten Besuch ab.
+     */
+    suspend fun watchStale() {
+        veraltet.stale.collect { stale ->
+            if (type in stale && veraltet.consume(type)) pager.refresh()
+        }
     }
 
     /**
@@ -202,6 +241,10 @@ class PropertyListViewModel(
         pagerScope = scope
         val newPager = InseratPager(scope) { cursor -> repository.seite(type, filter.label, cursor) }
         pager = newPager
+        scroll = ListScroll()
+        // Die Liste lädt ohnehin frisch; ein schon gesetzter Merker darf nicht ein zweites Mal laden.
+        veraltet.consume(type)
+        savedState[FILTER_KEY] = filter.name
         _state.value = PropertyListUiState(filter, newPager.state.value)
         scope.launch {
             newPager.state.collect { pagerState ->

@@ -3,6 +3,9 @@ package de.immoscrabber.app.core
 import android.content.Context
 import androidx.datastore.dataStoreFile
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import coil3.SingletonImageLoader
 import de.immoscrabber.app.BuildConfig
 import de.immoscrabber.app.core.network.ApiClientFactory
@@ -66,6 +69,22 @@ class AppContainer(applicationContext: Context) {
     init {
         appScope.launch(Dispatchers.IO) { sessionManager.start() }
         appScope.launch { clearImageCachesWhenSessionEnds(applicationContext) }
+        ProcessLifecycleOwner.get().lifecycle.addObserver(BackgroundTimer())
+    }
+
+    /**
+     * Meldet dem Veraltet-Merker der laufenden Sitzung, wann die App in den Hintergrund geht und
+     * zurückkommt (> 30 min → alle Listen veraltet, Entscheidung #10). Drehen zählt nicht, das
+     * deckt `ProcessLifecycleOwner` ab; ein Custom Tab schon, denn er läuft in einer anderen App.
+     */
+    private inner class BackgroundTimer : DefaultLifecycleObserver {
+        override fun onStop(owner: LifecycleOwner) {
+            session?.veraltet?.onBackground()
+        }
+
+        override fun onStart(owner: LifecycleOwner) {
+            session?.veraltet?.onForeground()
+        }
     }
 
     /**

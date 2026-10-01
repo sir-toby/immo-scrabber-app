@@ -34,7 +34,7 @@ class KartenstapelViewModelTest {
 
     private fun TestScope.stapel(ids: IntRange = 1..8): PropertyListViewModel {
         repository.pages[Label.UNBEWERTET] = page(ids)
-        return PropertyListViewModel(PropertyType.HOUSE, repository).also { runCurrent() }
+        return testViewModel(repository).also { runCurrent() }
     }
 
     private val PropertyListViewModel.ids get() = state.value.pager.items.map { it.id }
@@ -109,7 +109,7 @@ class KartenstapelViewModelTest {
     fun `lädt still nach, sobald weniger als 5 Karten übrig sind`() = runTest(dispatcher) {
         repository.pages[Label.UNBEWERTET] = page(1..20)
         repository.nextPages[PageCursor("t20", "20")] = page(21..25)
-        val vm = PropertyListViewModel(PropertyType.HOUSE, repository).also { runCurrent() }
+        val vm = testViewModel(repository).also { runCurrent() }
         repeat(15) { vm.bewerten(vm.top, Label.UNINTERESSANT) }
         runCurrent()
         assertEquals(1, repository.pageRequests.size)
@@ -129,7 +129,7 @@ class KartenstapelViewModelTest {
         // wieder bei den noch unbewerteten Karten 17–20 derselben Sekunde.
         repository.pages[Label.UNBEWERTET] = page(1..20)
         repository.nextPages[PageCursor("t20", "20")] = page(17..36)
-        val vm = PropertyListViewModel(PropertyType.HOUSE, repository).also { runCurrent() }
+        val vm = testViewModel(repository).also { runCurrent() }
 
         repeat(18) { vm.bewerten(vm.top, Label.UNINTERESSANT) }
         runCurrent()
