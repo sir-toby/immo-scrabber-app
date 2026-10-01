@@ -4,6 +4,7 @@ import de.immoscrabber.app.core.network.ImmoApi
 import de.immoscrabber.app.core.session.SessionState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -13,11 +14,13 @@ import kotlin.coroutines.cancellation.CancellationException
  * beim Logout, best effort. Alles ist folgenlos, wenn es scheitert (kein FCM-Token ohne
  * Play-Dienste, Server nicht erreichbar); der nächste App-Start versucht es erneut.
  *
+ * @param sessionState Anmeldezustand; solange er `Loading` ist, steht noch nicht fest, ob es eine Sitzung gibt.
  * @param fcmToken liefert das aktuelle FCM-Token; darf werfen.
  * @param api API der laufenden Sitzung, `null` wenn abgemeldet.
  * @param abmeldeTimeoutMillis so lange wartet der Logout höchstens auf das `DELETE`.
  */
 class GeraeteRegistrierung(
+    private val sessionState: Flow<SessionState>,
     private val fcmToken: suspend () -> String,
     private val api: () -> ImmoApi?,
     private val abmeldeTimeoutMillis: Long = DEFAULT_ABMELDE_TIMEOUT_MILLIS,
@@ -26,8 +29,11 @@ class GeraeteRegistrierung(
      * Registriert bei jedem Wechsel auf angemeldet: Sitzung aus dem Speicher beim App-Start
      * und jeder Login. Läuft, solange der Aufrufer-Scope lebt.
      */
-    suspend fun folgeSitzung(state: Flow<SessionState>) {
-        state.filterIsInstance<SessionState.LoggedIn>().collect { registrieren() }
+    suspend fun folgeSitzung() {
+        sessionState.filterIsInstance<SessionState.LoggedIn>().collect {
+            // Ein unerwarteter Fehler darf das Folgen nicht beenden; der nächste Wechsel versucht es neu.
+            folgenlos { registrieren() }
+        }
     }
 
     /** `PUT /devices` mit dem aktuellen Token, wenn angemeldet. */
@@ -36,9 +42,15 @@ class GeraeteRegistrierung(
         api()?.geraetRegistrieren(token)
     }
 
-    /** Aus `onNewToken`: das neue Token gleich registrieren, wenn angemeldet. */
+    /**
+     * Aus `onNewToken`: das neue Token registrieren, wenn angemeldet. Im kalten Prozess wird der
+     * Sitzungsspeicher noch gelesen; erst danach steht fest, ob es eine Sitzung gibt. Abgemeldet
+     * verfällt das Token (der nächste Login registriert ohnehin das aktuelle).
+     */
     suspend fun neuesToken(token: String) {
-        api()?.geraetRegistrieren(token)
+        val state = sessionState.first { it != SessionState.Loading }
+        if (state !is SessionState.LoggedIn) return
+        folgenlos { api()?.geraetRegistrieren(token) }
     }
 
     /** Vor dem Logout (solange die Sitzung noch gilt): `DELETE /devices/<token>`, höchstens kurz. */
@@ -50,9 +62,12 @@ class GeraeteRegistrierung(
         }
     }
 
-    private suspend fun aktuellesToken(): String? =
+    private suspend fun aktuellesToken(): String? = folgenlos { fcmToken().takeIf(String::isNotBlank) }
+
+    /** Führt [block] aus; eine Ausnahme (außer Abbruch) ergibt `null`. */
+    private suspend fun <T> folgenlos(block: suspend () -> T): T? =
         try {
-            fcmToken().takeIf(String::isNotBlank)
+            block()
         } catch (e: CancellationException) {
             throw e
         } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {

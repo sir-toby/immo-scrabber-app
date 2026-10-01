@@ -24,7 +24,11 @@ class GeraeteRegistrierungTest {
 
     private var fcmToken: String? = "fcm-token-1"
     private var angemeldet = true
+    private val loggedIn = SessionState.LoggedIn("https://immo.example.com/api/", "app-test")
+    private val loggedOut = SessionState.LoggedOut(null, null, null)
+    private val state = MutableStateFlow<SessionState>(loggedIn)
     private val registrierung = GeraeteRegistrierung(
+        sessionState = state,
         fcmToken = { fcmToken ?: throw IllegalStateException("keine Play-Dienste") },
         api = { if (angemeldet) mock.api else null },
         abmeldeTimeoutMillis = 500,
@@ -37,14 +41,11 @@ class GeraeteRegistrierungTest {
     private fun nextRequest() = mock.server.takeRequest(2, TimeUnit.SECONDS)
     private fun noRequest() = assertNull(mock.server.takeRequest(300, TimeUnit.MILLISECONDS))
 
-    private val loggedIn = SessionState.LoggedIn("https://immo.example.com/api/", "app-test")
-    private val loggedOut = SessionState.LoggedOut(null, null, null)
-
     @Test
     fun `bei jedem Wechsel auf angemeldet wird das Token per PUT registriert`() = runBlocking {
-        val state = MutableStateFlow<SessionState>(SessionState.Loading)
+        state.value = SessionState.Loading
         repeat(2) { mock.enqueue(MockResponse().setResponseCode(204)) }
-        scope.launch { registrierung.folgeSitzung(state) }
+        scope.launch { registrierung.folgeSitzung() }
 
         noRequest()
         state.value = loggedIn // App-Start mit gespeicherter Sitzung bzw. Login
@@ -69,7 +70,48 @@ class GeraeteRegistrierungTest {
     }
 
     @Test
+    fun `ein neues Token im kalten Prozess wartet, bis die Sitzung gelesen ist`() = runBlocking {
+        state.value = SessionState.Loading
+        angemeldet = false // Session noch nicht geöffnet
+        mock.enqueue(MockResponse().setResponseCode(204))
+
+        scope.launch { registrierung.neuesToken("fcm-token-2") }
+        noRequest()
+        angemeldet = true
+        state.value = loggedIn
+
+        assertEquals("""{"token":"fcm-token-2"}""", nextRequest()?.body?.readUtf8())
+    }
+
+    @Test
+    fun `ein unerwarteter Fehler beendet das Folgen der Sitzung nicht`() = runBlocking {
+        state.value = SessionState.Loading
+        var erstesMal = true
+        val wackelig = GeraeteRegistrierung(
+            sessionState = state,
+            fcmToken = { "fcm-token-1" },
+            api = {
+                if (erstesMal) {
+                    erstesMal = false
+                    throw IllegalStateException("unerwartet")
+                }
+                mock.api
+            },
+        )
+        mock.enqueue(MockResponse().setResponseCode(204))
+        scope.launch { wackelig.folgeSitzung() }
+
+        state.value = loggedIn
+        noRequest()
+        state.value = loggedOut
+        state.value = loggedIn.copy(username = "anderer")
+
+        assertEquals("PUT", nextRequest()?.method)
+    }
+
+    @Test
     fun `ein neues Token ohne Sitzung wird nicht geschickt`() = runBlocking {
+        state.value = loggedOut
         angemeldet = false
 
         registrierung.neuesToken("fcm-token-2")

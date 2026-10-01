@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -163,13 +164,12 @@ fun SettingsScreen(
         }
     }
 
-    if (confirmLogout) {
+    // Der Dialog bleibt offen, bis der Logout durch ist (Gerät abmelden dauert bis zu 3 s).
+    if (confirmLogout || state.abmelden) {
         LogoutDialog(
-            onConfirm = {
-                confirmLogout = false
-                viewModel.abmelden()
-            },
-            onDismiss = { confirmLogout = false },
+            laeuft = state.abmelden,
+            onConfirm = viewModel::abmelden,
+            onDismiss = { if (!state.abmelden) confirmLogout = false },
         )
     }
 }
@@ -314,12 +314,22 @@ private fun LazyListScope.kontoSektion(konto: KontoInfo, onLogout: () -> Unit) {
 
 /** Bestätigung vor dem Logout (Entscheidung #7); er wirkt nur lokal. */
 @Composable
-private fun LogoutDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+private fun LogoutDialog(laeuft: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.settings_logout_title)) },
         text = { Text(stringResource(R.string.settings_logout_text)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.settings_logout)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = !laeuft) {
+                if (laeuft) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(R.string.settings_logout))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !laeuft) { Text(stringResource(R.string.cancel)) }
+        },
     )
 }

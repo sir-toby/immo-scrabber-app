@@ -73,6 +73,7 @@ class AppContainer(applicationContext: Context) {
     val benachrichtigungen = Benachrichtigungen(applicationContext)
 
     private val geraeteRegistrierung = GeraeteRegistrierung(
+        sessionState = sessionManager.state,
         fcmToken = ::fcmToken,
         api = { session?.api },
     )
@@ -81,10 +82,10 @@ class AppContainer(applicationContext: Context) {
         appScope.launch(Dispatchers.IO) { sessionManager.start() }
         appScope.launch { clearImageCachesWhenSessionEnds(applicationContext) }
         // PUT /devices nach dem Login und bei jedem App-Start mit gespeicherter Sitzung (Entscheidung #9).
-        appScope.launch(Dispatchers.IO) { geraeteRegistrierung.folgeSitzung(sessionManager.state) }
+        appScope.launch(Dispatchers.IO) { geraeteRegistrierung.folgeSitzung() }
     }
 
-    /** Aus `onNewToken`: neues FCM-Token registrieren, wenn angemeldet. */
+    /** Aus `onNewToken`: neues FCM-Token registrieren, sobald feststeht, dass eine Sitzung läuft. */
     fun neuesFcmToken(token: String) {
         appScope.launch(Dispatchers.IO) { geraeteRegistrierung.neuesToken(token) }
     }
