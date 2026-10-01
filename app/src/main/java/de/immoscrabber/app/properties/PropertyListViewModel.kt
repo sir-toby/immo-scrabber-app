@@ -38,7 +38,7 @@ enum class Filter(val label: Label?) {
 /** Einmalige Ereignisse des Tabs. */
 sealed interface ListEvent {
     /**
-     * „Als Favorit markiert“ / „Ins Archiv verschoben“ mit „Rückgängig“. [bewertungId] nennt die
+     * „Als Favorit markiert“ / „Ins Archiv verschoben“ / „Zurück zu Neu verschoben“ mit „Rückgängig“. [bewertungId] nennt die
      * Bewertung für [PropertyListViewModel.undo]; ihren Zustand hält das ViewModel.
      */
     data class Bewertet(val label: Label, val bewertungId: Long) : ListEvent
@@ -219,6 +219,16 @@ class PropertyListViewModel(
             }
         }
     }
+
+    /**
+     * Long Press → „Zurück zu Neu“ in der Wischliste (#14): eine Bewertung wie jede andere, nur mit
+     * dem Label `unbewertet` (das Backend löscht dann die Bewertung). Optimistisch, mit Rückgängig
+     * und „Erneut versuchen“ wie [bewerten]. Unbewertete Inserate bleiben unberührt.
+     *
+     * Den Veraltet-Merker braucht es nicht: Er gilt je Typ, nicht je Filter, und würde nur die
+     * sichtbare Wischliste neu laden; „Neu“ lädt beim Filterwechsel ohnehin frisch (#10).
+     */
+    fun zurueckZuNeu(inserat: Inserat) = bewerten(inserat, Label.UNBEWERTET)
 
     /** „Erneut versuchen“ nach einem gescheiterten PATCH. */
     fun retry(failed: ListEvent.BewertungFehlgeschlagen) = bewerten(failed.inserat, failed.label)

@@ -113,6 +113,7 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
     val texts = SnackbarTexts(
         bewertetFavorit = stringResource(R.string.rated_favorite),
         bewertetArchiv = stringResource(R.string.rated_archive),
+        zurueckZuNeu = stringResource(R.string.rated_new),
         undo = stringResource(R.string.undo),
         bewertungFehlgeschlagen = stringResource(R.string.rating_failed),
         retry = stringResource(R.string.retry),
@@ -272,6 +273,7 @@ private fun ListContent(
             loadState = loadState,
             listState = listState,
             onBewerten = viewModel::bewerten,
+            onZurueckZuNeu = viewModel::zurueckZuNeu,
             onOpen = viewModel::open,
             onLoadMore = viewModel::loadMore,
             onRetry = viewModel::retryLoading,
@@ -317,6 +319,7 @@ private fun Wischliste(
     loadState: LoadState,
     listState: LazyListState,
     onBewerten: (Inserat, Label) -> Unit,
+    onZurueckZuNeu: (Inserat) -> Unit,
     onOpen: (Inserat) -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
@@ -339,6 +342,7 @@ private fun Wischliste(
                     inserat = inserat,
                     filter = filter,
                     onBewerten = { label -> onBewerten(inserat, label) },
+                    onZurueckZuNeu = { onZurueckZuNeu(inserat) },
                     onClick = { onOpen(inserat) },
                 )
                 HorizontalDivider()
@@ -417,6 +421,7 @@ private fun MessageState(
 private class SnackbarTexts(
     val bewertetFavorit: String,
     val bewertetArchiv: String,
+    val zurueckZuNeu: String,
     val undo: String,
     val bewertungFehlgeschlagen: String,
     val retry: String,
@@ -435,7 +440,11 @@ private suspend fun handleEvent(
 ) {
     when (event) {
         is ListEvent.Bewertet -> {
-            val message = if (event.label == Label.INTERESSANT) texts.bewertetFavorit else texts.bewertetArchiv
+            val message = when (event.label) {
+                Label.INTERESSANT -> texts.bewertetFavorit
+                Label.UNINTERESSANT -> texts.bewertetArchiv
+                Label.UNBEWERTET -> texts.zurueckZuNeu
+            }
             val result = snackbarHostState.showSnackbar(message, texts.undo, duration = SnackbarDuration.Short)
             if (result == SnackbarResult.ActionPerformed) viewModel.undo(event)
         }
