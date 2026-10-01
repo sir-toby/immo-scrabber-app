@@ -85,7 +85,7 @@ fun SwipeableInseratRow(
         Modifier
     }
 
-    Box(modifier.then(a11y)) {
+    Box(modifier) {
         SwipeToDismissBox(
             state = state,
             enableDismissFromStartToEnd = filter != Filter.Favoriten,
@@ -96,7 +96,10 @@ fun SwipeableInseratRow(
                 inserat,
                 showLabel = filter == Filter.Alle,
                 onClick = onClick,
-                onLongClick = if (bewertet) ({ menuOpen = true }) else null,
+                // An der Zeile selbst: TalkBack fokussiert den zusammengeführten klickbaren Knoten.
+                modifier = a11y,
+                // Unbewertet tut Long Press nichts (sonst zählte das Loslassen als Tipp und öffnete das Inserat).
+                onLongClick = if (bewertet) ({ menuOpen = true }) else ({}),
                 onLongClickLabel = if (bewertet) stringResource(R.string.row_menu) else null,
             )
         }
