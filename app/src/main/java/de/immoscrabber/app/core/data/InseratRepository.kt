@@ -9,8 +9,8 @@ import de.immoscrabber.app.core.network.ImmoApi
 
 /**
  * Inserate lesen und bewerten, für genau eine Sitzung (hängt an `Session.inserate` und wird mit
- * ihr verworfen, Entscheidung #10). Heute ein dünner Durchgriff auf das [ImmoApi]; hier setzen
- * später Caches und der „Veraltet“-Merker an.
+ * ihr verworfen, Entscheidung #10). Ein dünner Durchgriff auf das [ImmoApi]; wann neu geladen
+ * wird, entscheidet der [VeraltetMerker].
  */
 interface InseratRepository {
     /** Eine Seite für [type]; [label] `null` heißt „Alle“, [Label.UNBEWERTET] ist „Neu“. */

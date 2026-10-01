@@ -3,6 +3,9 @@ package de.immoscrabber.app.core
 import android.content.Context
 import androidx.datastore.dataStoreFile
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import coil3.SingletonImageLoader
 import com.google.firebase.messaging.FirebaseMessaging
 import de.immoscrabber.app.BuildConfig
@@ -83,6 +86,7 @@ class AppContainer(applicationContext: Context) {
         appScope.launch { clearImageCachesWhenSessionEnds(applicationContext) }
         // PUT /devices nach dem Login und bei jedem App-Start mit gespeicherter Sitzung (Entscheidung #9).
         appScope.launch(Dispatchers.IO) { geraeteRegistrierung.folgeSitzung() }
+        ProcessLifecycleOwner.get().lifecycle.addObserver(BackgroundTimer())
     }
 
     /** Aus `onNewToken`: neues FCM-Token registrieren, sobald feststeht, dass eine Sitzung läuft. */
@@ -108,6 +112,21 @@ class AppContainer(applicationContext: Context) {
             } else {
                 continuation.resumeWithException(task.exception ?: IllegalStateException("kein FCM-Token"))
             }
+        }
+    }
+
+    /**
+     * Meldet dem Veraltet-Merker der laufenden Sitzung, wann die App in den Hintergrund geht und
+     * zurückkommt (> 30 min → alle Listen veraltet, Entscheidung #10). Drehen zählt nicht, das
+     * deckt `ProcessLifecycleOwner` ab; ein Custom Tab schon, denn er läuft in einer anderen App.
+     */
+    private inner class BackgroundTimer : DefaultLifecycleObserver {
+        override fun onStop(owner: LifecycleOwner) {
+            session?.veraltet?.onBackground()
+        }
+
+        override fun onStart(owner: LifecycleOwner) {
+            session?.veraltet?.onForeground()
         }
     }
 

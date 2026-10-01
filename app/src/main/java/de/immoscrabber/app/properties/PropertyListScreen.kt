@@ -41,6 +41,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,12 +56,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.createSavedStateHandle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import de.immoscrabber.app.R
 import de.immoscrabber.app.core.data.InseratRepository
+import de.immoscrabber.app.core.data.VeraltetMerker
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.Label
 import de.immoscrabber.app.core.model.PropertyType
@@ -70,15 +76,23 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 
 /**
- * Tab eines Immobilientyps. Das ViewModel hängt am Back-Stack-Eintrag des Tabs; Filter und
- * Liste überleben so Tab-Wechsel und Drehen.
+ * Tab eines Immobilientyps. Das ViewModel hängt am Back-Stack-Eintrag des Tabs; Filter, Liste und
+ * Scrollposition überleben so Tab-Wechsel und Drehen, der Filter (per SavedStateHandle) auch das
+ * Beenden durch das System.
  */
 @Composable
-fun PropertyTab(type: PropertyType, repository: InseratRepository) {
+fun PropertyTab(type: PropertyType, repository: InseratRepository, veraltet: VeraltetMerker) {
     val viewModel: PropertyListViewModel = viewModel(
         key = "properties-${type.apiValue}",
-        factory = viewModelFactory { initializer { PropertyListViewModel(type, repository) } },
+        factory = viewModelFactory {
+            initializer { PropertyListViewModel(type, repository, veraltet, createSavedStateHandle()) }
+        },
     )
+    // Nur der sichtbare Tab im Vordergrund lädt bei „Veraltet“ sofort neu; die anderen beim nächsten Besuch.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.watchStale() }
+    }
     PropertyListScreen(viewModel)
 }
 
@@ -138,8 +152,21 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
     ) { innerPadding ->
         Column(Modifier.padding(innerPadding).fillMaxSize()) {
             FilterChips(state.filter, viewModel::selectFilter)
-            // Scrollposition je Filter: ein Filterwechsel beginnt oben.
-            val listState = rememberSaveable(state.filter, saver = LazyListState.Saver) { LazyListState() }
+            // Scrollposition je Filter, nur im ViewModel (Entscheidung #10): Tab-Wechsel und Drehen
+            // behalten sie, nach dem Beenden durch das System und nach einem Filterwechsel beginnt
+            // die Liste oben. Deshalb bewusst kein rememberSaveable.
+            val filter = state.filter
+            val listState = remember(filter) {
+                viewModel.scrollFor(filter).let { LazyListState(it.index, it.offset) }
+            }
+            DisposableEffect(listState) {
+                onDispose {
+                    viewModel.saveScroll(
+                        filter,
+                        ListScroll(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset),
+                    )
+                }
+            }
             PullToRefreshBox(
                 isRefreshing = state.pager.loaded && loadState == LoadState.Loading(LoadKind.Refresh),
                 onRefresh = viewModel::refresh,

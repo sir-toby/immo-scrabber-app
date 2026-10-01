@@ -116,9 +116,9 @@ fun MainShell(session: Session, benachrichtigungen: Benachrichtigungen, logout: 
             enterTransition = { EnterTransition.None },
             exitTransition = { ExitTransition.None },
         ) {
-            composable<HaeuserTab> { PropertyTab(PropertyType.HOUSE, session.inserate) }
-            composable<WohnungenTab> { PropertyTab(PropertyType.FLAT, session.inserate) }
-            composable<GrundstueckeTab> { PropertyTab(PropertyType.SITE, session.inserate) }
+            composable<HaeuserTab> { PropertyTab(PropertyType.HOUSE, session.inserate, session.veraltet) }
+            composable<WohnungenTab> { PropertyTab(PropertyType.FLAT, session.inserate, session.veraltet) }
+            composable<GrundstueckeTab> { PropertyTab(PropertyType.SITE, session.inserate, session.veraltet) }
             composable<EinstellungenTab> {
                 SettingsTab(
                     repository = session.suchprofile,
