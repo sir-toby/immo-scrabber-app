@@ -9,7 +9,7 @@ data class Suchprofil(
     /** Umkreis in km. */
     val radius: Int?,
     /** Ausgeschlossene Anbieter (Teilstring-Match, nur Häuser und Wohnungen). */
-    val excludedProviders: List<String>,
+    val ausgeschlosseneAnbieter: List<String>,
     /** Wird gespeichert, filtert laut Backend aber keine Ergebnisse. */
     val excludedSources: List<String>,
     val priceLimit: Int?,
@@ -29,7 +29,7 @@ data class SuchprofilInput(
     val city: String,
     val zipCode: String,
     val radius: Int,
-    val excludedProviders: List<String> = emptyList(),
+    val ausgeschlosseneAnbieter: List<String> = emptyList(),
     val excludedSources: List<String> = emptyList(),
     val priceLimit: Int? = null,
     val minRooms: Int? = null,

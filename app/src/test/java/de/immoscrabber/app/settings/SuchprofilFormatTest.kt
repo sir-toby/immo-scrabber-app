@@ -22,7 +22,7 @@ private fun profil(
     city = city,
     zipCode = zipCode,
     radius = radius,
-    excludedProviders = emptyList(),
+    ausgeschlosseneAnbieter = emptyList(),
     excludedSources = emptyList(),
     priceLimit = priceLimit,
     minRooms = minRooms,

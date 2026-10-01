@@ -3,6 +3,7 @@ package de.immoscrabber.app.settings
 import de.immoscrabber.app.core.data.SuchprofilRepository
 import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.model.Suchprofil
+import de.immoscrabber.app.core.model.SuchprofilInput
 import de.immoscrabber.app.core.network.ApiError
 import de.immoscrabber.app.core.network.ApiResult
 import kotlinx.coroutines.CompletableDeferred
@@ -31,7 +32,7 @@ private fun profil(id: String, type: PropertyType, city: String) = Suchprofil(
     city = city,
     zipCode = null,
     radius = 20,
-    excludedProviders = emptyList(),
+    ausgeschlosseneAnbieter = emptyList(),
     excludedSources = emptyList(),
     priceLimit = null,
     minRooms = null,
@@ -53,6 +54,10 @@ private class FakeSuchprofilRepository : SuchprofilRepository {
         if (result is ApiResult.Success) suchprofile.value = result.value
         return result
     }
+
+    override suspend fun speichern(id: String?, input: SuchprofilInput) = error("nicht im Einstellungen-Tab")
+
+    override suspend fun loeschen(profil: Suchprofil) = error("nicht im Einstellungen-Tab")
 }
 
 private val network = ApiResult.Failure(ApiError.Network(IOException("offline")))

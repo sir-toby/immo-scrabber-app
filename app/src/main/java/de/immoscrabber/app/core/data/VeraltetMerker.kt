@@ -15,7 +15,7 @@ import kotlin.time.Duration
  * - für **alle** Typen, wenn die App mehr als [threshold] im Hintergrund war ([onBackground] /
  *   [onForeground], verdrahtet im `AppContainer`), und
  * - für **einen** Typ per [markStale], wenn ein Suchprofil dieses Typs gespeichert oder gelöscht
- *   wurde (ruft der Suchprofil-Editor, #32).
+ *   wurde (ruft das `SuchprofilRepository` nach jedem Speichern/Löschen).
  *
  * Der sichtbare Tab beobachtet [stale] und holt sich seinen Merker mit [consume] ab; dann lädt er
  * neu. Andere Tabs holen ihn beim nächsten Besuch ab.

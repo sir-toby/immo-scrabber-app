@@ -81,7 +81,12 @@ import kotlinx.coroutines.flow.filter
  * Beenden durch das System.
  */
 @Composable
-fun PropertyTab(type: PropertyType, repository: InseratRepository, veraltet: VeraltetMerker) {
+fun PropertyTab(
+    type: PropertyType,
+    repository: InseratRepository,
+    veraltet: VeraltetMerker,
+    onSuchprofilAnlegen: () -> Unit,
+) {
     val viewModel: PropertyListViewModel = viewModel(
         key = "properties-${type.apiValue}",
         factory = viewModelFactory {
@@ -93,12 +98,12 @@ fun PropertyTab(type: PropertyType, repository: InseratRepository, veraltet: Ver
     LaunchedEffect(viewModel, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.watchStale() }
     }
-    PropertyListScreen(viewModel)
+    PropertyListScreen(viewModel, onSuchprofilAnlegen)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PropertyListScreen(viewModel: PropertyListViewModel) {
+fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val typeName = stringResource(viewModel.type.pluralName)
     val snackbarHostState = remember { SnackbarHostState() }
@@ -128,7 +133,7 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
     val loadState = state.pager.loadState
     LaunchedEffect(loadState) {
         // Pull-to-Refresh gescheitert, die alte Liste steht noch: nur kurz melden.
-        if (loadState is LoadState.Failed && loadState.kind == LoadKind.Refresh && state.pager.loaded) {
+        if (loadState is LoadState.Failed && loadState.kind == LoadKind.Refresh && state.pager.loaded && !loadState.keinSuchprofil) {
             snackbarHostState.showSnackbar(loadFailedText)
         }
     }
@@ -172,7 +177,7 @@ fun PropertyListScreen(viewModel: PropertyListViewModel) {
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                ListContent(state, typeName, listState, viewModel)
+                ListContent(state, typeName, listState, viewModel, onSuchprofilAnlegen)
             }
         }
     }
@@ -226,6 +231,7 @@ private fun ListContent(
     typeName: String,
     listState: LazyListState,
     viewModel: PropertyListViewModel,
+    onSuchprofilAnlegen: () -> Unit,
 ) {
     val pager = state.pager
     val loadState = pager.loadState
@@ -233,11 +239,13 @@ private fun ListContent(
     // weitere Seiten. Das Laden läuft dann oder ist gescheitert.
     val waiting = !pager.loaded || (state.filter == Filter.Neu && pager.items.isEmpty() && !pager.endReached)
     when {
-        // 400 nur ohne jedes Suchprofil; den Button zum Editor bringt dessen Ticket.
-        !pager.loaded && loadState is LoadState.Failed && loadState.error is ApiError.BadRequest ->
+        // 400 nur ohne jedes Suchprofil (Entscheidung #8): Editor mit dem Typ dieses Tabs. Auch wenn
+        // schon eine Liste stand (das letzte Suchprofil wurde gelöscht), sie passt dann nicht mehr.
+        loadState.keinSuchprofil ->
             MessageState(
                 title = stringResource(R.string.no_search_profile_title),
                 text = stringResource(R.string.no_search_profile_text),
+                action = stringResource(R.string.no_search_profile_create) to onSuchprofilAnlegen,
             )
         waiting && loadState is LoadState.Failed -> MessageState(
             title = stringResource(R.string.load_failed, typeName),
@@ -266,6 +274,10 @@ private fun ListContent(
         )
     }
 }
+
+/** `/properties/results` antwortet nur ohne jedes Suchprofil mit 400. */
+private val LoadState.keinSuchprofil: Boolean
+    get() = this is LoadState.Failed && error is ApiError.BadRequest
 
 @Composable
 private fun FilterChips(selected: Filter, onSelect: (Filter) -> Unit) {
