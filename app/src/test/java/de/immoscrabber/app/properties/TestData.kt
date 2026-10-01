@@ -1,5 +1,8 @@
 package de.immoscrabber.app.properties
 
+import androidx.lifecycle.SavedStateHandle
+import de.immoscrabber.app.core.data.InseratRepository
+import de.immoscrabber.app.core.data.VeraltetMerker
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.InseratPage
 import de.immoscrabber.app.core.model.Label
@@ -11,6 +14,15 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import kotlin.time.Duration
+
+/** Ein Häuser-Tab mit frischem Veraltet-Merker und leerem gespeicherten Zustand (Kaltstart). */
+fun testViewModel(
+    repository: InseratRepository,
+    veraltet: VeraltetMerker = VeraltetMerker(now = { Duration.ZERO }),
+    savedState: SavedStateHandle = SavedStateHandle(),
+    type: PropertyType = PropertyType.HOUSE,
+) = PropertyListViewModel(type, repository, veraltet, savedState)
 
 fun inserat(
     id: String,

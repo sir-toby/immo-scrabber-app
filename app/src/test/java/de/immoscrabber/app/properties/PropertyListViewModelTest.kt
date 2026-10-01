@@ -35,7 +35,7 @@ class PropertyListViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     private fun TestScope.viewModel(): PropertyListViewModel =
-        PropertyListViewModel(PropertyType.HOUSE, repository).also { runCurrent() }
+        testViewModel(repository).also { runCurrent() }
 
     private val PropertyListViewModel.ids get() = state.value.pager.items.map { it.id }
 
@@ -233,8 +233,12 @@ class FakeInseratRepository : InseratRepository {
     /** Folgeseiten je Cursor (die erste Seite kommt aus [pages]). */
     val nextPages = mutableMapOf<PageCursor, ApiResult<InseratPage>>()
 
+    /** Hält Seiten-Antworten zurück, bis es abgeschlossen wird. */
+    var pageGate: CompletableDeferred<Unit>? = null
+
     override suspend fun seite(type: PropertyType, label: Label?, cursor: PageCursor?): ApiResult<InseratPage> {
         pageRequests += PageRequest(type, label, cursor)
+        pageGate?.await()
         if (cursor != null) return nextPages[cursor] ?: error("keine Seite für $cursor")
         return pages[label] ?: error("keine Seite für $label")
     }

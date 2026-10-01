@@ -26,6 +26,11 @@ val prodBaseUrl: String = providers.environmentVariable("IMMO_PROD_BASE_URL").or
     }?.takeIf(String::isNotBlank)
     ?: ""
 
+// Veraltet-Merker: mehr als 30 Minuten im Hintergrund (Entscheidung #10). Release immer 30 min.
+val DEFAULT_STALE_AFTER_SECONDS = 30 * 60
+val staleAfterSeconds: Int = providers.gradleProperty("immo.staleAfterSeconds").orNull?.toIntOrNull()
+    ?: DEFAULT_STALE_AFTER_SECONDS
+
 // Release-Signierung aus der Umgebung (CI-Secrets). Der Keystore kommt Base64-kodiert.
 val releaseSigningEnv = listOf(
     "RELEASE_KEYSTORE_BASE64",
@@ -69,12 +74,15 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            // Nur zum Testen: Schwelle des Veraltet-Merkers verkürzen, z. B. -Pimmo.staleAfterSeconds=20.
+            buildConfigField("long", "STALE_AFTER_SECONDS", "${staleAfterSeconds}L")
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release")
+            buildConfigField("long", "STALE_AFTER_SECONDS", "${DEFAULT_STALE_AFTER_SECONDS}L")
         }
     }
 
@@ -134,6 +142,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.retrofit)
