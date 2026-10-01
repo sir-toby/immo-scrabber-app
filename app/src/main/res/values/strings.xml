@@ -70,12 +70,17 @@
     <string name="settings_profiles_max">Maximal %1$d Suchprofile</string>
     <string name="settings_profiles_load_failed">Suchprofile konnten nicht geladen werden</string>
     <string name="settings_notifications_header">Benachrichtigungen</string>
-    <string name="settings_notifications_placeholder">Folgt mit den Push-Benachrichtigungen</string>
+    <string name="settings_notifications_on">An – je Immobilientyp einzeln einstellbar</string>
+    <string name="settings_notifications_off">Aus – in den Systemeinstellungen aktivieren</string>
     <string name="settings_account_header">Konto</string>
     <string name="settings_account_logged_in">Angemeldet als %1$s auf %2$s</string>
     <string name="settings_logout">Abmelden</string>
     <string name="settings_logout_title">Abmelden?</string>
     <string name="settings_logout_text">Du wirst auf diesem Gerät abgemeldet. Server und Benutzername bleiben für die nächste Anmeldung gespeichert.</string>
+    <!-- Benachrichtigungen über Neuzugänge (Entscheidung #9): ein Channel je Typ -->
+    <string name="notification_channel_houses">Neue Häuser</string>
+    <string name="notification_channel_flats">Neue Wohnungen</string>
+    <string name="notification_channel_sites">Neue Grundstücke</string>
     <string name="settings_app_version">Immo-Finder %1$s</string>
 
     <plurals name="archived_all_houses">

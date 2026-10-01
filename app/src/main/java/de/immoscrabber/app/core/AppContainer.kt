@@ -4,9 +4,12 @@ import android.content.Context
 import androidx.datastore.dataStoreFile
 import androidx.datastore.preferences.preferencesDataStore
 import coil3.SingletonImageLoader
+import com.google.firebase.messaging.FirebaseMessaging
 import de.immoscrabber.app.BuildConfig
 import de.immoscrabber.app.core.network.ApiClientFactory
 import de.immoscrabber.app.core.network.createImageHttpClient
+import de.immoscrabber.app.core.push.Benachrichtigungen
+import de.immoscrabber.app.core.push.GeraeteRegistrierung
 import de.immoscrabber.app.core.session.DataStoreSessionPrefsStore
 import de.immoscrabber.app.core.session.EncryptedTokenStore
 import de.immoscrabber.app.core.session.Session
@@ -17,8 +20,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /** Unverschlüsselter Speicher für Server und Username (Datei `datastore/session.preferences_pb`). */
 private val Context.sessionPrefsDataStore by preferencesDataStore(name = "session")
@@ -63,9 +69,45 @@ class AppContainer(applicationContext: Context) {
     /** Die laufende Sitzung (API-Client usw.), `null` wenn abgemeldet. */
     val session: Session? get() = sessionManager.currentSession
 
+    /** Channels, Anzeige und Berechtigung der Benachrichtigungen über Neuzugänge. */
+    val benachrichtigungen = Benachrichtigungen(applicationContext)
+
+    private val geraeteRegistrierung = GeraeteRegistrierung(
+        fcmToken = ::fcmToken,
+        api = { session?.api },
+    )
+
     init {
         appScope.launch(Dispatchers.IO) { sessionManager.start() }
         appScope.launch { clearImageCachesWhenSessionEnds(applicationContext) }
+        // PUT /devices nach dem Login und bei jedem App-Start mit gespeicherter Sitzung (Entscheidung #9).
+        appScope.launch(Dispatchers.IO) { geraeteRegistrierung.folgeSitzung(sessionManager.state) }
+    }
+
+    /** Aus `onNewToken`: neues FCM-Token registrieren, wenn angemeldet. */
+    fun neuesFcmToken(token: String) {
+        appScope.launch(Dispatchers.IO) { geraeteRegistrierung.neuesToken(token) }
+    }
+
+    /**
+     * Logout aus „Einstellungen“: erst das Gerät abmelden (best effort, braucht noch die
+     * Sitzung), dann lokal abmelden.
+     */
+    suspend fun logout() {
+        withContext(Dispatchers.IO) { geraeteRegistrierung.abmelden() }
+        sessionManager.logout()
+    }
+
+    /** Ohne Play-Dienste wirft das; die Registrierung fängt es ab. */
+    private suspend fun fcmToken(): String = suspendCancellableCoroutine { continuation ->
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            val token = if (task.isSuccessful) task.result else null
+            if (token != null) {
+                continuation.resume(token)
+            } else {
+                continuation.resumeWithException(task.exception ?: IllegalStateException("kein FCM-Token"))
+            }
+        }
     }
 
     /**

@@ -1,5 +1,8 @@
 package de.immoscrabber.app
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -28,6 +31,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import de.immoscrabber.app.core.model.PropertyType
+import de.immoscrabber.app.core.push.Benachrichtigungen
 import de.immoscrabber.app.core.session.Session
 import de.immoscrabber.app.properties.PropertyTab
 import de.immoscrabber.app.core.ui.icon
@@ -65,7 +69,7 @@ private enum class TopTab(val route: Any, @param:StringRes val title: Int, val i
  * Scrollposition); Zurück führt von jedem Tab erst zu „Häuser“, dann aus der App.
  */
 @Composable
-fun MainShell(session: Session, logout: suspend () -> Unit) {
+fun MainShell(session: Session, benachrichtigungen: Benachrichtigungen, logout: suspend () -> Unit) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
@@ -73,6 +77,15 @@ fun MainShell(session: Session, logout: suspend () -> Unit) {
     // Nach dem Login steht sonst die Tastatur des Passwortfelds noch über der Liste.
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { keyboard?.hide() }
+
+    // POST_NOTIFICATIONS einmal nach dem ersten erfolgreichen Login, nie wieder (Entscheidung #9).
+    val berechtigungAnfragen = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    LaunchedEffect(Unit) {
+        if (benachrichtigungen.sollAnfragen()) {
+            benachrichtigungen.alsGefragtMerken()
+            berechtigungAnfragen.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -111,6 +124,8 @@ fun MainShell(session: Session, logout: suspend () -> Unit) {
                     repository = session.suchprofile,
                     konto = KontoInfo(session.username, session.baseUrl, BuildConfig.VERSION_NAME),
                     logout = logout,
+                    benachrichtigungenErlaubt = benachrichtigungen::erlaubt,
+                    benachrichtigungenEinstellungen = benachrichtigungen::systemEinstellungenIntent,
                     // TODO(#32): Suchprofil-Editor als Vollbild-Route öffnen (neu bzw. mit diesem Profil).
                     onNeuesSuchprofil = {},
                     onSuchprofilOeffnen = {},

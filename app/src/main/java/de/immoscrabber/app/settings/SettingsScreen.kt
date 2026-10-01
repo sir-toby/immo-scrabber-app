@@ -1,5 +1,7 @@
 package de.immoscrabber.app.settings
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +17,7 @@ import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -41,9 +44,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -60,25 +65,52 @@ data class KontoInfo(val username: String, val baseUrl: String, val appVersion: 
 /**
  * Einstieg des Tabs: ViewModel am Back-Stack-Eintrag des Tabs, Suchprofile aus dem Repository der
  * Sitzung, [logout] meldet lokal ab.
+ *
+ * @param benachrichtigungenErlaubt ob die App Benachrichtigungen zeigen darf (bei jedem Zurückkehren neu gelesen).
+ * @param benachrichtigungenEinstellungen Intent auf die System-Einstellungsseite der App für Benachrichtigungen.
  */
 @Composable
 fun SettingsTab(
     repository: SuchprofilRepository,
     konto: KontoInfo,
     logout: suspend () -> Unit,
+    benachrichtigungenErlaubt: () -> Boolean,
+    benachrichtigungenEinstellungen: () -> Intent,
     onNeuesSuchprofil: () -> Unit,
     onSuchprofilOeffnen: (Suchprofil) -> Unit,
 ) {
     val viewModel: SettingsViewModel = viewModel(
         factory = viewModelFactory { initializer { SettingsViewModel(repository, logout) } },
     )
-    SettingsScreen(viewModel, konto, onNeuesSuchprofil, onSuchprofilOeffnen)
+    // Kommt man aus den Systemeinstellungen zurück, kann sich der Zustand geändert haben.
+    var erlaubt by remember { mutableStateOf(benachrichtigungenErlaubt()) }
+    LifecycleResumeEffect(Unit) {
+        erlaubt = benachrichtigungenErlaubt()
+        onPauseOrDispose {}
+    }
+    val context = LocalContext.current
+    SettingsScreen(
+        viewModel = viewModel,
+        konto = konto,
+        benachrichtigungenErlaubt = erlaubt,
+        onBenachrichtigungen = {
+            try {
+                context.startActivity(benachrichtigungenEinstellungen())
+            } catch (_: ActivityNotFoundException) {
+                // Ohne Einstellungs-App (exotische Geräte) passiert eben nichts.
+            }
+        },
+        onNeuesSuchprofil = onNeuesSuchprofil,
+        onSuchprofilOeffnen = onSuchprofilOeffnen,
+    )
 }
 
 /**
  * Einstellungen-Tab (Entscheidung #8): eine scrollende Seite mit den Sektionen Suchprofile (n/10),
  * Benachrichtigungen, Konto und der App-Version ganz unten.
  *
+ * @param benachrichtigungenErlaubt sonst zeigt „Benachrichtigungen“ „Aus – in den Systemeinstellungen aktivieren“.
+ * @param onBenachrichtigungen öffnet die System-Einstellungsseite der App (Entscheidung #9).
  * @param onNeuesSuchprofil „+ Neues Suchprofil“; öffnet den Editor (#32).
  * @param onSuchprofilOeffnen Tipp auf ein Profil; öffnet es im Editor (#32).
  */
@@ -87,6 +119,8 @@ fun SettingsTab(
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     konto: KontoInfo,
+    benachrichtigungenErlaubt: Boolean,
+    onBenachrichtigungen: () -> Unit,
     onNeuesSuchprofil: () -> Unit,
     onSuchprofilOeffnen: (Suchprofil) -> Unit,
 ) {
@@ -114,7 +148,7 @@ fun SettingsScreen(
         ) {
             LazyColumn(Modifier.fillMaxSize()) {
                 suchprofilSektion(state.suchprofile, viewModel::retry, onNeuesSuchprofil, onSuchprofilOeffnen)
-                benachrichtigungenSektion()
+                benachrichtigungenSektion(benachrichtigungenErlaubt, onBenachrichtigungen)
                 kontoSektion(konto, onLogout = { confirmLogout = true })
                 item(key = "version") {
                     Text(
@@ -228,20 +262,29 @@ private fun SuchprofilZeile(profil: Suchprofil, onClick: () -> Unit) {
 }
 
 /**
- * Platzhalter der Sektion „Benachrichtigungen“. Das Push-Ticket (Entscheidung #9) ersetzt diese
- * Zeile durch die echten Einstellungen; die Sektion sitzt schon an ihrer Stelle.
+ * Sektion „Benachrichtigungen“ (Entscheidung #9): keine eigenen Einstellungen, ein Eintrag öffnet
+ * die System-Einstellungsseite der App (Channels je Typ, Ton, an/aus).
  */
-private fun LazyListScope.benachrichtigungenSektion() {
+private fun LazyListScope.benachrichtigungenSektion(erlaubt: Boolean, onClick: () -> Unit) {
     item(key = "notifications-divider") { HorizontalDivider(Modifier.padding(top = 8.dp)) }
     sektionsKopf("notifications-header") { stringResource(R.string.settings_notifications_header) }
-    item(key = "notifications-placeholder") {
+    item(key = "notifications-system") {
         ListItem(
-            headlineContent = { Text(stringResource(R.string.settings_notifications_placeholder)) },
-            leadingContent = { Icon(Icons.Outlined.Notifications, contentDescription = null) },
-            colors = ListItemDefaults.colors(
-                headlineColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
+            headlineContent = { Text(stringResource(R.string.settings_notifications_header)) },
+            supportingContent = {
+                Text(
+                    stringResource(
+                        if (erlaubt) R.string.settings_notifications_on else R.string.settings_notifications_off,
+                    ),
+                )
+            },
+            leadingContent = {
+                Icon(
+                    if (erlaubt) Icons.Outlined.Notifications else Icons.Outlined.NotificationsOff,
+                    contentDescription = null,
+                )
+            },
+            modifier = Modifier.clickable(onClick = onClick),
         )
     }
 }

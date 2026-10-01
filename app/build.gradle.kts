@@ -8,6 +8,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    // Liest app/google-services.json (beide Package-Namen, committet laut Entscheidung #19).
+    alias(libs.plugins.google.services)
 }
 
 // Version aus dem Release-Tag (Gradle-Property oder Umgebungsvariable VERSION_TAG, z. B. "v1.2.0").
@@ -145,6 +147,8 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.browser)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
