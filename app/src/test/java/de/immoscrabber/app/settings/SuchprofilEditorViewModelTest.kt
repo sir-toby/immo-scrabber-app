@@ -123,6 +123,39 @@ class SuchprofilEditorViewModelTest {
     }
 
     @Test
+    fun `nur Leerzeichen geändert fragt nicht nach Verwerfen`() {
+        val vm = bearbeiten()
+
+        vm.aendern { it.copy(city = "Erlangen  ") }
+
+        assertFalse(vm.state.value.geaendert)
+    }
+
+    @Test
+    fun `doppeltes Tippen auf Speichern speichert nur einmal`() = runTest(dispatcher) {
+        val vm = bearbeiten()
+        val events = events(vm)
+        vm.aendern { it.copy(priceLimit = "500000") }
+
+        vm.speichern()
+        vm.speichern()
+        repository.next.complete(ApiResult.Success(Unit))
+
+        assertEquals(1, repository.gespeichert.size)
+        assertEquals(listOf<EditorEvent>(EditorEvent.Gespeichert(neuerOrt = false)), events)
+    }
+
+    @Test
+    fun `doppeltes Tippen auf Löschen löscht nur einmal`() {
+        val vm = bearbeiten()
+
+        vm.loeschen()
+        vm.loeschen()
+
+        assertEquals(1, repository.geloescht.size)
+    }
+
+    @Test
     fun `Fehler erscheinen erst nach dem ersten Speichern-Versuch, dann live`() {
         val vm = neu()
         assertEquals(emptyMap<Feld, Feldfehler>(), vm.state.value.fehler)

@@ -74,7 +74,7 @@ class SuchprofilEditorViewModel(
             state.copy(
                 form = neu,
                 fehler = if (pruefen) neu.pruefen() else emptyMap(),
-                geaendert = neu != ausgang,
+                geaendert = neu.normalisiert() != ausgang.normalisiert(),
             )
         }
     }

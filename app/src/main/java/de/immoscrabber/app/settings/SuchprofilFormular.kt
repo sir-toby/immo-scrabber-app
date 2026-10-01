@@ -4,6 +4,7 @@ import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.model.Suchprofil
 import de.immoscrabber.app.core.model.SuchprofilInput
 import de.immoscrabber.app.core.network.ApiError
+import java.time.LocalDate
 
 /** Default-Umkreis eines neuen Suchprofils in km (Entscheidung #8). */
 const val DEFAULT_RADIUS_KM = 20
@@ -45,8 +46,12 @@ data class SuchprofilFormular(
 ) {
     val felder: Set<Feld> get() = felderFuer(type)
 
-    /** Fehler je sichtbarem Feld; leer heißt speicherbar. Ein leeres Limit ist kein Fehler (kein Limit). */
-    fun pruefen(): Map<Feld, Feldfehler> = buildMap {
+    /**
+     * Fehler je sichtbarem Feld; leer heißt speicherbar. Ein leeres Limit ist kein Fehler (kein Limit).
+     * Baujahre gelten zwischen [MIN_BAUJAHR] und [aktuellesJahr] + [BAUJAHR_VORLAUF] (Neubauprojekte).
+     */
+    fun pruefen(aktuellesJahr: Int = LocalDate.now().year): Map<Feld, Feldfehler> = buildMap {
+        val baujahre = MIN_BAUJAHR..aktuellesJahr + BAUJAHR_VORLAUF
         if (type == null) put(Feld.Typ, Feldfehler.TypFehlt)
         if (!PLZ.matches(zipCode.trim())) put(Feld.Plz, Feldfehler.PlzUngueltig)
         if (city.isBlank()) put(Feld.Stadt, Feldfehler.StadtFehlt)
@@ -55,18 +60,31 @@ data class SuchprofilFormular(
         for ((feld, wert) in listOf(Feld.Preis to priceLimit, Feld.Zimmer to minRooms, Feld.Flaeche to minArea)) {
             if (feld in felder && !optionaleZahl(wert)) put(feld, Feldfehler.KeineGanzeZahl)
         }
-        val von = baujahr(Feld.BaujahrVon, minConstructionYear)
-        val bis = baujahr(Feld.BaujahrBis, maxConstructionYear)
+        val von = baujahr(Feld.BaujahrVon, minConstructionYear, baujahre)
+        val bis = baujahr(Feld.BaujahrBis, maxConstructionYear, baujahre)
         if (von != null && bis != null && von > bis) put(Feld.BaujahrBis, Feldfehler.BaujahrReihenfolge)
     }
 
     /** Prüft ein Baujahr (nur wenn sichtbar), trägt den Fehler ein und liefert das Jahr, falls gültig. */
-    private fun MutableMap<Feld, Feldfehler>.baujahr(feld: Feld, wert: String): Int? {
+    private fun MutableMap<Feld, Feldfehler>.baujahr(feld: Feld, wert: String, plausibel: IntRange): Int? {
         if (feld !in felder || wert.isBlank()) return null
-        val jahr = wert.trim().takeIf { BAUJAHR.matches(it) }?.toInt()
+        val jahr = wert.trim().takeIf { BAUJAHR.matches(it) }?.toInt()?.takeIf { it in plausibel }
         if (jahr == null) put(feld, Feldfehler.BaujahrUngueltig)
         return jahr
     }
+
+    /** Ohne Leerzeichen am Rand: Danach vergleicht der Editor, ob sich inhaltlich etwas geändert hat. */
+    fun normalisiert(): SuchprofilFormular = copy(
+        zipCode = zipCode.trim(),
+        city = city.trim(),
+        radius = radius.trim(),
+        priceLimit = priceLimit.trim(),
+        minRooms = minRooms.trim(),
+        minConstructionYear = minConstructionYear.trim(),
+        maxConstructionYear = maxConstructionYear.trim(),
+        minArea = minArea.trim(),
+        anbieterEingabe = anbieterEingabe.trim(),
+    )
 
     /**
      * Der Request zum Speichern, `null` solange [pruefen] Fehler meldet. Leere Felder werden `null`
@@ -126,6 +144,9 @@ data class SuchprofilFormular(
         )
     }
 }
+
+private const val MIN_BAUJAHR = 1800
+private const val BAUJAHR_VORLAUF = 5
 
 private val PLZ = Regex("\\d{5}")
 private val BAUJAHR = Regex("\\d{4}")

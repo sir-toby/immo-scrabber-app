@@ -118,7 +118,7 @@
     <string name="editor_error_city">Stadt angeben</string>
     <string name="editor_error_radius">Radius größer 0 km angeben</string>
     <string name="editor_error_number">Ganze Zahl angeben</string>
-    <string name="editor_error_year">Baujahr vierstellig angeben</string>
+    <string name="editor_error_year">Gültiges Baujahr angeben (z. B. 1990)</string>
     <string name="editor_error_year_order">Darf nicht vor „Baujahr von“ liegen</string>
     <string name="editor_delete">Löschen</string>
     <string name="editor_delete_title">Suchprofil löschen?</string>

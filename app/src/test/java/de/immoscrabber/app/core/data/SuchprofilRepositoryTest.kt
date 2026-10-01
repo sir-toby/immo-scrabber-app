@@ -117,6 +117,29 @@ class SuchprofilRepositoryTest {
     }
 
     @Test
+    fun `Löschen eines schon gelöschten Profils (404) gilt als Erfolg und lädt neu`() = runTest {
+        dreiProfileGeladen()
+        val site = repository.suchprofile.value!!.single { it.propertyType == PropertyType.SITE }
+        mock.enqueue(jsonResponse(404, "preferences/preference_404.json"))
+        mock.enqueue(jsonResponse(200, "preferences/preferences_list.json"))
+
+        val result = repository.loeschen(site)
+
+        assertEquals(ApiResult.Success(Unit), result)
+        assertEquals("DELETE", mock.takeRequest().method)
+        assertEquals("GET", mock.takeRequest().method)
+        assertEquals(setOf(PropertyType.SITE), veraltet.stale.value)
+    }
+
+    @Test
+    fun `404 beim Ändern bleibt ein Fehler`() = runTest {
+        dreiProfileGeladen()
+        mock.enqueue(jsonResponse(404, "preferences/preference_404.json"))
+
+        assertEquals(ApiResult.Failure(ApiError.Http(404)), repository.speichern(id = "weg", input = flat))
+    }
+
+    @Test
     fun `gescheitertes Speichern lädt nicht neu und markiert nichts`() = runTest {
         dreiProfileGeladen()
         mock.enqueue(MockResponse().setResponseCode(500))

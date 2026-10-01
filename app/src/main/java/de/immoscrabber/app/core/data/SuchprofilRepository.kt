@@ -3,6 +3,7 @@ package de.immoscrabber.app.core.data
 import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.model.Suchprofil
 import de.immoscrabber.app.core.model.SuchprofilInput
+import de.immoscrabber.app.core.network.ApiError
 import de.immoscrabber.app.core.network.ApiResult
 import de.immoscrabber.app.core.network.ImmoApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,6 +12,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /** Mehr Suchprofile nimmt das Backend nicht an (400 mit Servertext). */
 const val MAX_SUCHPROFILE = 10
+
+private const val HTTP_NOT_FOUND = 404
 
 /**
  * Die Suchprofile einer Sitzung (hängt an `Session.suchprofile` und wird mit ihr verworfen,
@@ -32,7 +35,7 @@ interface SuchprofilRepository {
      */
     suspend fun speichern(id: String?, input: SuchprofilInput): ApiResult<Unit>
 
-    /** `DELETE`; danach wie [speichern]: Typ veraltet, Liste neu geladen. */
+    /** `DELETE` (404 = schon weg, gilt als Erfolg); danach wie [speichern]: Typ veraltet, Liste neu geladen. */
     suspend fun loeschen(profil: Suchprofil): ApiResult<Unit>
 }
 
@@ -56,8 +59,13 @@ class ApiSuchprofilRepository(
         return nachAenderung(result, input.propertyType)
     }
 
-    override suspend fun loeschen(profil: Suchprofil): ApiResult<Unit> =
-        nachAenderung(api.suchprofilLoeschen(profil.id), profil.propertyType)
+    /** 404 heißt: schon gelöscht (etwa im Web). Das Ziel ist erreicht, also wie Erfolg behandeln. */
+    override suspend fun loeschen(profil: Suchprofil): ApiResult<Unit> {
+        val result = api.suchprofilLoeschen(profil.id).let {
+            if (it is ApiResult.Failure && it.error == ApiError.Http(HTTP_NOT_FOUND)) ApiResult.Success(Unit) else it
+        }
+        return nachAenderung(result, profil.propertyType)
+    }
 
     private suspend fun nachAenderung(result: ApiResult<*>, type: PropertyType?): ApiResult<Unit> {
         if (result is ApiResult.Failure) return result

@@ -106,6 +106,25 @@ class SuchprofilFormularTest {
     }
 
     @Test
+    fun `Baujahre zwischen 1800 und fünf Jahre nach heute sind plausibel`() {
+        fun fehler(jahr: String) = erlangenHaus.copy(minConstructionYear = jahr).pruefen(aktuellesJahr = 2026)[Feld.BaujahrVon]
+
+        assertEquals(Feldfehler.BaujahrUngueltig, fehler("1799"))
+        assertEquals(Feldfehler.BaujahrUngueltig, fehler("0000"))
+        assertEquals(Feldfehler.BaujahrUngueltig, fehler("2032"))
+        assertNull(fehler("1800"))
+        assertNull(fehler("2031"))
+    }
+
+    @Test
+    fun `nur Leerzeichen ergänzt ist inhaltlich dasselbe Formular`() {
+        val mitLeerzeichen = erlangenHaus.copy(city = " Erlangen  ", zipCode = "91054 ", anbieterEingabe = "   ")
+
+        assertEquals(erlangenHaus.normalisiert(), mitLeerzeichen.normalisiert())
+        assertFalse(erlangenHaus.normalisiert() == erlangenHaus.copy(city = "Nürnberg").normalisiert())
+    }
+
+    @Test
     fun `Baujahr von darf nicht nach bis liegen, gleich ist erlaubt`() {
         val falsch = erlangenHaus.copy(minConstructionYear = "2021", maxConstructionYear = "2020")
         val gleich = erlangenHaus.copy(minConstructionYear = "2020", maxConstructionYear = "2020")
