@@ -149,13 +149,13 @@ fun MainShell(session: Session, benachrichtigungen: Benachrichtigungen, logout: 
             exitTransition = { ExitTransition.None },
         ) {
             composable<HaeuserTab> {
-                PropertyTab(PropertyType.HOUSE, session.inserate, session.veraltet) { neuesSuchprofil(PropertyType.HOUSE) }
+                PropertyTab(PropertyType.HOUSE, session.inserate, session.suchprofile, session.veraltet) { neuesSuchprofil(PropertyType.HOUSE) }
             }
             composable<WohnungenTab> {
-                PropertyTab(PropertyType.FLAT, session.inserate, session.veraltet) { neuesSuchprofil(PropertyType.FLAT) }
+                PropertyTab(PropertyType.FLAT, session.inserate, session.suchprofile, session.veraltet) { neuesSuchprofil(PropertyType.FLAT) }
             }
             composable<GrundstueckeTab> {
-                PropertyTab(PropertyType.SITE, session.inserate, session.veraltet) { neuesSuchprofil(PropertyType.SITE) }
+                PropertyTab(PropertyType.SITE, session.inserate, session.suchprofile, session.veraltet) { neuesSuchprofil(PropertyType.SITE) }
             }
             composable<EinstellungenTab> {
                 SettingsTab(
