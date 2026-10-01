@@ -21,6 +21,7 @@ import de.immoscrabber.app.login.LoginViewModel
 import de.immoscrabber.app.login.RegisterScreen
 import de.immoscrabber.app.login.RegisterViewModel
 import kotlinx.serialization.Serializable
+import kotlin.reflect.KClass
 
 /** Login als Vollbild ohne Bottom Navigation. */
 @Serializable
@@ -81,7 +82,9 @@ fun ImmoFinderNavHost(container: AppContainer, initialState: SessionState) {
     LaunchedEffect(sessionState) {
         when (sessionState) {
             is SessionState.LoggedIn -> navController.navigateClearing(MainRoute)
-            is SessionState.LoggedOut -> navController.navigateClearing(LoginRoute)
+            // „Registrieren“ liegt über dem Login und gilt als abgemeldet; sonst wirft z. B. das
+            // Neuerstellen der Activity (Drehen, Dark Mode) den Nutzer dorthin zurück.
+            is SessionState.LoggedOut -> navController.navigateClearing(LoginRoute, RegisterRoute::class)
             SessionState.Loading -> Unit
         }
     }
@@ -91,8 +94,10 @@ private fun loginViewModelFactory(container: AppContainer) = viewModelFactory {
     initializer { LoginViewModel(container.sessionManager, container.prodBaseUrl, container.allowLocalCleartext) }
 }
 
-private fun NavHostController.navigateClearing(route: Any) {
-    if (currentDestination?.hasRoute(route::class) == true) return
+/** Navigiert mit geleertem Back-Stack nach [route], außer man ist schon dort oder auf [alsoFine]. */
+private fun NavHostController.navigateClearing(route: Any, vararg alsoFine: KClass<*>) {
+    val current = currentDestination
+    if (current != null && (listOf(route::class) + alsoFine).any { current.hasRoute(it) }) return
     navigate(route) {
         popUpTo(graph.id) { inclusive = true }
         launchSingleTop = true
