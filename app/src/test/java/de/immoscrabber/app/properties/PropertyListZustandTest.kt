@@ -28,7 +28,7 @@ import kotlin.time.Duration
 class PropertyListZustandTest {
     private val dispatcher = UnconfinedTestDispatcher()
     private val repository = FakeInseratRepository()
-    private val veraltet = VeraltetMerker(now = { Duration.ZERO })
+    private val veraltet = VeraltetMerker(now = { Duration.ZERO }, threshold = Duration.INFINITE)
 
     @Before
     fun setUp() = Dispatchers.setMain(dispatcher)
@@ -159,6 +159,18 @@ class PropertyListZustandTest {
 
         sichtbar(vm)
         assertEquals(2, repository.pageRequests.size)
+        assertFalse(veraltet.consume(PropertyType.HOUSE))
+    }
+
+    @Test
+    fun `ein neu angelegter Tab, der schon veraltet ist, lädt genau einmal`() = runTest(dispatcher) {
+        repository.pages[Label.UNBEWERTET] = page(1..3)
+        veraltet.markStale(PropertyType.HOUSE)
+
+        val vm = viewModel()
+        sichtbar(vm)
+
+        assertEquals(1, repository.pageRequests.size)
         assertFalse(veraltet.consume(PropertyType.HOUSE))
     }
 

@@ -11,7 +11,7 @@ import kotlin.time.Duration.Companion.minutes
 
 class VeraltetMerkerTest {
     private var now = Duration.ZERO
-    private val merker = VeraltetMerker(now = { now })
+    private val merker = VeraltetMerker(now = { now }, threshold = 30.minutes)
 
     private fun vergeht(dauer: Duration) {
         now += dauer

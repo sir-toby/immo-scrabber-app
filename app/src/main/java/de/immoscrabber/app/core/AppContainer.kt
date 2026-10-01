@@ -3,6 +3,9 @@ package de.immoscrabber.app.core
 import android.content.Context
 import androidx.datastore.dataStoreFile
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import coil3.SingletonImageLoader
 import de.immoscrabber.app.BuildConfig
 import de.immoscrabber.app.core.network.ApiClientFactory
@@ -13,9 +16,6 @@ import de.immoscrabber.app.core.session.Session
 import de.immoscrabber.app.core.session.SessionCrypto
 import de.immoscrabber.app.core.session.SessionManager
 import de.immoscrabber.app.core.session.SessionState
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

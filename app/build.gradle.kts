@@ -27,6 +27,7 @@ val prodBaseUrl: String = providers.environmentVariable("IMMO_PROD_BASE_URL").or
     ?: ""
 
 // Veraltet-Merker: mehr als 30 Minuten im Hintergrund (Entscheidung #10). Release immer 30 min.
+// Einzige Stelle für die Schwelle; landet als BuildConfig.STALE_AFTER_SECONDS in Session.veraltet.
 val DEFAULT_STALE_AFTER_SECONDS = 30 * 60
 val staleAfterSeconds: Int = providers.gradleProperty("immo.staleAfterSeconds").orNull?.toIntOrNull()
     ?: DEFAULT_STALE_AFTER_SECONDS

@@ -242,6 +242,8 @@ class PropertyListViewModel(
         val newPager = InseratPager(scope) { cursor -> repository.seite(type, filter.label, cursor) }
         pager = newPager
         scroll = ListScroll()
+        // Die Liste lädt ohnehin frisch; ein schon gesetzter Merker darf nicht ein zweites Mal laden.
+        veraltet.consume(type)
         savedState[FILTER_KEY] = filter.name
         _state.value = PropertyListUiState(filter, newPager.state.value)
         scope.launch {

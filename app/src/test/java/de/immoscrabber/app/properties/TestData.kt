@@ -19,7 +19,7 @@ import kotlin.time.Duration
 /** Ein Häuser-Tab mit frischem Veraltet-Merker und leerem gespeicherten Zustand (Kaltstart). */
 fun testViewModel(
     repository: InseratRepository,
-    veraltet: VeraltetMerker = VeraltetMerker(now = { Duration.ZERO }),
+    veraltet: VeraltetMerker = VeraltetMerker(now = { Duration.ZERO }, threshold = Duration.INFINITE),
     savedState: SavedStateHandle = SavedStateHandle(),
     type: PropertyType = PropertyType.HOUSE,
 ) = PropertyListViewModel(type, repository, veraltet, savedState)

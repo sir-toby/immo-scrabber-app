@@ -6,10 +6,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.minutes
-
-/** Ab mehr als so langer Zeit im Hintergrund gelten alle Listen als veraltet (Entscheidung #10). */
-val DEFAULT_STALE_THRESHOLD: Duration = 30.minutes
 
 /**
  * „Veraltet“-Merker je Immobilientyp (Entscheidung #10), für genau eine Sitzung (hängt an
@@ -25,10 +21,12 @@ val DEFAULT_STALE_THRESHOLD: Duration = 30.minutes
  * neu. Andere Tabs holen ihn beim nächsten Besuch ab.
  *
  * @param now monotone Uhr (in der App `SystemClock.elapsedRealtime`), in Tests von Hand gestellt.
+ * @param threshold ab mehr als so langer Zeit im Hintergrund ist alles veraltet. Die 30 Minuten
+ *   (Entscheidung #10) stehen nur in `app/build.gradle.kts` (`STALE_AFTER_SECONDS`, siehe `Session.veraltet`).
  */
 class VeraltetMerker(
     private val now: () -> Duration,
-    private val threshold: Duration = DEFAULT_STALE_THRESHOLD,
+    private val threshold: Duration,
 ) {
     private val _stale = MutableStateFlow<Set<PropertyType>>(emptySet())
 
