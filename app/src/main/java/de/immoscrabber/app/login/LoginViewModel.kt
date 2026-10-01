@@ -27,6 +27,8 @@ data class LoginUiState(
     val error: LoginError? = null,
     /** „Sitzung abgelaufen, bitte neu anmelden“, bis der Nutzer es neu versucht. */
     val sessionExpired: Boolean = false,
+    /** „Registrierung erfolgreich – bitte anmelden“, bis der Nutzer es versucht (#12). */
+    val registered: Boolean = false,
 ) {
     val canSubmit: Boolean get() = !loading && username.isNotBlank() && password.isNotEmpty()
 }
@@ -63,11 +65,29 @@ class LoginViewModel(
             BaseUrlResult.Invalid -> return showServerError(ServerError.Invalid)
             BaseUrlResult.HttpsRequired -> return showServerError(ServerError.HttpsRequired)
         }
-        _state.update { it.copy(loading = true, error = null, sessionExpired = false, serverUrl = baseUrl) }
+        _state.update {
+            it.copy(loading = true, error = null, sessionExpired = false, registered = false, serverUrl = baseUrl)
+        }
         viewModelScope.launch {
             val error = session.login(baseUrl, current.username.trim(), current.password).toLoginError()
             _state.update { it.copy(loading = false, error = error) }
         }
+    }
+
+    /**
+     * Zurück vom Registrieren-Screen: Konto angelegt, aber die direkte Anmeldung scheiterte.
+     * Benutzername und Server vorbelegen, Hinweis zeigen (#12).
+     */
+    fun onRegistered(username: String, baseUrl: String) = _state.update {
+        it.copy(
+            username = username,
+            password = "",
+            serverUrl = baseUrl,
+            serverError = null,
+            error = null,
+            sessionExpired = false,
+            registered = true,
+        )
     }
 
     private fun showServerError(error: ServerError) =

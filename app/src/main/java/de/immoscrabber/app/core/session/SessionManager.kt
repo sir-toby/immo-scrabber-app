@@ -64,6 +64,18 @@ interface SessionLogin {
 }
 
 /**
+ * Was der Registrieren-Screen braucht (#12): ein Konto anlegen und danach direkt anmelden.
+ * In Tests ersetzt ein Fake den SessionManager.
+ */
+interface SessionRegistration {
+    /** Legt mit bereits normalisierter [baseUrl] ein Konto an; meldet nicht an und speichert nichts. */
+    suspend fun register(baseUrl: String, username: String, password: String): ApiResult<Unit>
+
+    /** Wie [SessionLogin.login]. */
+    suspend fun login(baseUrl: String, username: String, password: String): LoginResult
+}
+
+/**
  * Alles, was zu genau einer Sitzung gehört. Wird bei Logout/Sitzungsende komplett
  * verworfen (Entscheidung #10); spätere Repositories samt Caches hängen hier an.
  */
@@ -106,7 +118,7 @@ class SessionManager(
     private val prefsStore: SessionPrefsStore,
     private val apiClientFactory: ApiClientFactory,
     private val scope: CoroutineScope,
-) : SessionLogin {
+) : SessionLogin, SessionRegistration {
     private val mutex = Mutex()
     private val _state = MutableStateFlow<SessionState>(SessionState.Loading)
     override val state: StateFlow<SessionState> = _state.asStateFlow()
@@ -161,6 +173,9 @@ class SessionManager(
             LoginResult.Success
         }
     }
+
+    override suspend fun register(baseUrl: String, username: String, password: String): ApiResult<Unit> =
+        apiClientFactory.create(baseUrl, tokenSource = { null }).register(username, password)
 
     /** Lokaler Logout: Tokens und Sitzung weg, Server und Username bleiben. */
     suspend fun logout() = mutex.withLock {

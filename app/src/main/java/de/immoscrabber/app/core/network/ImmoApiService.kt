@@ -27,6 +27,11 @@ internal interface ImmoApiService {
     @POST("auth/login")
     suspend fun login(@Body body: LoginRequestDto): TokenPairDto
 
+    /** 201 mit `{}`; der Body wird ignoriert. */
+    @Unauthenticated
+    @POST("auth/register")
+    suspend fun register(@Body body: LoginRequestDto)
+
     /** `authorization` ist `Bearer <refresh_token>`; der Interceptor lässt ihn unverändert. */
     @POST("auth/refresh")
     suspend fun refresh(@Header(AUTHORIZATION) authorization: String): TokenPairDto

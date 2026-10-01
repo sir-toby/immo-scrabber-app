@@ -211,4 +211,29 @@ class LoginViewModelTest {
 
         assertNull(vm.state.value.error)
     }
+
+    // --- Nach der Registrierung ---
+
+    @Test
+    fun `nach Registrierung ohne Anmeldung ist der Login vorbelegt und zeigt den Hinweis`() = runTest(dispatcher) {
+        val session = loggedOut(LogoutReason.SessionExpired)
+        val vm = viewModel(session)
+        vm.fill(username = "anna", password = "alt")
+
+        vm.onRegistered(username = "neu", baseUrl = "https://andere.example.com/api/")
+
+        val state = vm.state.value
+        assertEquals("neu", state.username)
+        assertEquals("", state.password)
+        assertEquals("https://andere.example.com/api/", state.serverUrl)
+        assertTrue(state.registered)
+        assertFalse(state.sessionExpired)
+        assertNull(state.error)
+
+        vm.onPasswordChange("geheim")
+        vm.submit()
+
+        assertFalse(vm.state.value.registered)
+        assertEquals(LoginCall("https://andere.example.com/api/", "neu", "geheim"), session.calls.single())
+    }
 }

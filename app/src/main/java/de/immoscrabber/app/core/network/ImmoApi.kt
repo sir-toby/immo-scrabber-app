@@ -33,6 +33,14 @@ class ImmoApi internal constructor(private val service: ImmoApiService) {
     }
 
     /**
+     * `POST /auth/register` (#12). 201 ist Erfolg; ein vergebener Benutzername kommt als
+     * [ApiError.Http] mit 409. Ohne Bearer bedeutet kein Status Sitzungsende.
+     */
+    suspend fun register(username: String, password: String): ApiResult<Unit> = apiCall(sessionExpiredCodes = emptySet()) {
+        service.register(LoginRequestDto(username, password))
+    }
+
+    /**
      * `POST /auth/refresh` mit dem Refresh-Token als Bearer; liefert ein neues Paar (Rotation).
      * 401/422 bedeuten hier wirklich Sitzungsende (Entscheidung #7).
      */

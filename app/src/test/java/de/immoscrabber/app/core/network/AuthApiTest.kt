@@ -2,6 +2,7 @@ package de.immoscrabber.app.core.network
 
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -50,6 +51,43 @@ class AuthApiTest {
         val result = mock.api.login("app-test", "geheim")
 
         assertTrue("war $result", (result as ApiResult.Failure).error is ApiError.InvalidResponse)
+    }
+
+    @Test
+    fun `register schickt Zugangsdaten ohne Bearer und 201 ist Erfolg`() = runTest {
+        mock.enqueue(jsonResponse(201, "auth/register_201.json"))
+
+        val result = mock.api.register("neu", "geheim")
+
+        assertEquals(ApiResult.Success(Unit), result)
+        val request = mock.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/api/auth/register", request.path)
+        assertEquals("""{"username":"neu","password":"geheim"}""", request.body.readUtf8())
+        assertNull(request.getHeader("Authorization"))
+    }
+
+    @Test
+    fun `register mit vergebenem Benutzernamen ist HTTP 409`() = runTest {
+        mock.enqueue(jsonResponse(409, "auth/register_409.json"))
+
+        assertEquals(ApiResult.Failure(ApiError.Http(409)), mock.api.register("app-test", "geheim"))
+    }
+
+    @Test
+    fun `register mit 401 ist ein HTTP-Fehler, kein Sitzungsende`() = runTest {
+        mock.enqueue(MockResponse().setResponseCode(401))
+
+        assertEquals(ApiResult.Failure(ApiError.Http(401)), mock.api.register("neu", "geheim"))
+    }
+
+    @Test
+    fun `register ohne Server ist ein Netzfehler`() = runTest {
+        mock.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
+
+        val result = mock.api.register("neu", "geheim")
+
+        assertTrue("war $result", (result as ApiResult.Failure).error is ApiError.Network)
     }
 
     @Test
