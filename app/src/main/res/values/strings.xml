@@ -20,6 +20,17 @@
     <string name="login_error_unexpected_http">Unerwarteter Fehler (HTTP %1$d)</string>
     <string name="login_error_unexpected">Unerwarteter Fehler</string>
     <string name="login_session_expired">Sitzung abgelaufen, bitte neu anmelden</string>
+    <string name="login_registered">Registrierung erfolgreich – bitte anmelden</string>
+    <string name="login_no_account">Noch kein Konto?</string>
+    <string name="login_to_register">Registrieren</string>
+
+    <!-- Registrieren (#12) -->
+    <string name="register_title">Registrieren</string>
+    <string name="register_password_repeat">Passwort wiederholen</string>
+    <string name="register_password_mismatch">Passwörter stimmen nicht überein</string>
+    <string name="register_submit">Registrieren</string>
+    <string name="register_have_account">Schon ein Konto?</string>
+    <string name="register_error_username_taken">Benutzername ist schon vergeben</string>
 
     <!-- Bottom Navigation (Entscheidung #10) -->
     <string name="tab_houses">Häuser</string>

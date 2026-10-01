@@ -3,6 +3,7 @@ package de.immoscrabber.app
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -12,15 +13,22 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import de.immoscrabber.app.core.AppContainer
 import de.immoscrabber.app.core.session.SessionState
 import de.immoscrabber.app.login.LoginScreen
 import de.immoscrabber.app.login.LoginViewModel
+import de.immoscrabber.app.login.RegisterScreen
+import de.immoscrabber.app.login.RegisterViewModel
 import kotlinx.serialization.Serializable
 
 /** Login als Vollbild ohne Bottom Navigation. */
 @Serializable
 data object LoginRoute
+
+/** „Registrieren“ (#12) über dem Login; [serverUrl] ist die Server-Eingabe des Logins. */
+@Serializable
+data class RegisterRoute(val serverUrl: String)
 
 /** Hauptansicht mit Bottom Navigation ([MainShell]). */
 @Serializable
@@ -39,14 +47,29 @@ fun ImmoFinderNavHost(container: AppContainer, initialState: SessionState) {
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable<LoginRoute> {
-            val viewModel: LoginViewModel = viewModel(
+            val viewModel: LoginViewModel = viewModel(factory = loginViewModelFactory(container))
+            LoginScreen(viewModel, onRegister = { navController.navigate(RegisterRoute(it)) })
+        }
+        composable<RegisterRoute> { entry ->
+            val route = entry.toRoute<RegisterRoute>()
+            val viewModel: RegisterViewModel = viewModel(
                 factory = viewModelFactory {
                     initializer {
-                        LoginViewModel(container.sessionManager, container.prodBaseUrl, container.allowLocalCleartext)
+                        RegisterViewModel(container.sessionManager, route.serverUrl, container.allowLocalCleartext)
                     }
                 },
             )
-            LoginScreen(viewModel)
+            // Der Login darunter ist derselbe wie vor dem Öffnen, seine Eingaben bleiben.
+            val loginEntry = remember(entry) { navController.getBackStackEntry<LoginRoute>() }
+            val loginViewModel: LoginViewModel = viewModel(loginEntry, factory = loginViewModelFactory(container))
+            RegisterScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onPleaseLogin = { user ->
+                    loginViewModel.onRegistered(user.username, user.baseUrl)
+                    navController.popBackStack()
+                },
+            )
         }
         composable<MainRoute> {
             // Beim Abmelden kann die Sitzung kurz vor dem Wechsel zum Login schon weg sein.
@@ -62,6 +85,10 @@ fun ImmoFinderNavHost(container: AppContainer, initialState: SessionState) {
             SessionState.Loading -> Unit
         }
     }
+}
+
+private fun loginViewModelFactory(container: AppContainer) = viewModelFactory {
+    initializer { LoginViewModel(container.sessionManager, container.prodBaseUrl, container.allowLocalCleartext) }
 }
 
 private fun NavHostController.navigateClearing(route: Any) {

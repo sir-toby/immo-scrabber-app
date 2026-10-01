@@ -176,6 +176,22 @@ class SessionManagerTest {
         assertNull(manager.currentSession)
     }
 
+    // --- Registrierung ---
+
+    @Test
+    fun `Registrieren ruft den angegebenen Server und ändert weder Zustand noch Speicher`() = runBlocking {
+        manager.start()
+        server.enqueue(jsonResponse(201, "auth/register_201.json"))
+
+        val result = manager.register(baseUrl, "neu", "geheim")
+
+        assertEquals(ApiResult.Success(Unit), result)
+        assertEquals("/api/auth/register", server.takeRequest().path)
+        assertEquals(SessionState.LoggedOut(null, null, null), manager.state.value)
+        assertEquals(SessionPrefs(null, null), prefsStore.prefs)
+        assertNull(manager.currentSession)
+    }
+
     // --- Reaktiver Refresh ---
 
     @Test
