@@ -77,11 +77,11 @@ class Session internal constructor(
     val inserate: InseratRepository by lazy { ApiInseratRepository(api) }
 
     /** Suchprofile dieser Sitzung, im Speicher bis zum Logout/Sitzungsende. */
-    val suchprofile: SuchprofilRepository by lazy { ApiSuchprofilRepository(api) }
+    val suchprofile: SuchprofilRepository by lazy { ApiSuchprofilRepository(api, veraltet) }
 
     /**
-     * „Veraltet“-Merker je Immobilientyp (Entscheidung #10). Der Suchprofil-Editor (#32) ruft nach
-     * jedem Speichern/Löschen `veraltet.markStale(type)`. Die Schwelle ist 30 Minuten; nur im
+     * „Veraltet“-Merker je Immobilientyp (Entscheidung #10). [suchprofile] ruft nach jedem
+     * Speichern/Löschen `veraltet.markStale(type)`. Die Schwelle ist 30 Minuten; nur im
      * Debug-Build lässt sie sich mit `-Pimmo.staleAfterSeconds=<n>` verkürzen.
      */
     val veraltet: VeraltetMerker by lazy {
