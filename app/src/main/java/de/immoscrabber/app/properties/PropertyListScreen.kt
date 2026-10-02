@@ -127,9 +127,12 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
     )
     var confirmArchiveAll by rememberSaveable { mutableStateOf(false) }
 
-    // Detail-Sheet der Wischliste (#14): die ID des Inserats, der Filterwechsel schließt es.
+    // Detail-Sheet der Wischliste und des Kartenstapels (#14): die ID des Inserats, der
+    // Filterwechsel schließt es.
     var sheetId by rememberSaveable(state.filter) { mutableStateOf<String?>(null) }
-    val sheetItem = if (state.filter == Filter.Neu) null else sheetInserat(state.pager.items, sheetId)
+    val sheetItem = sheetInserat(state.pager.items, sheetId)
+    // Im Kartenstapel bewertet der Umschalter wie ein Wisch.
+    val kartenSteuerung = remember(state.filter) { KartenSteuerung() }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // Hat das Inserat die Liste verlassen (Favoriten/Archiv), schließt das Sheet mit dem zuletzt
     // gezeigten Inhalt (mit dem neu gewählten Label); kommt die Zeile per „Rückgängig“ zurück,
@@ -206,7 +209,7 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                ListContent(state, typeName, listState, viewModel, onSuchprofilAnlegen, onDetails = { sheetId = it.id })
+                ListContent(state, typeName, listState, viewModel, onSuchprofilAnlegen, kartenSteuerung, onDetails = { sheetId = it.id })
             }
         }
     }
@@ -220,7 +223,11 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
                 // Verlässt die Zeile die Liste, gleitet das Sheet mit diesem Stand heraus: das neue
                 // Label, nicht das alte (sonst springt der Umschalter sichtbar zurück).
                 lastSheetItem[0] = shownInSheet.copy(label = label)
-                viewModel.bewerten(shownInSheet, label)
+                if (state.filter == Filter.Neu) {
+                    kartenSteuerung.wischen(shownInSheet, label)
+                } else {
+                    viewModel.bewerten(shownInSheet, label)
+                }
             },
             onOpen = { viewModel.open(shownInSheet) },
             onDismiss = { sheetId = null },
@@ -277,6 +284,7 @@ private fun ListContent(
     listState: LazyListState,
     viewModel: PropertyListViewModel,
     onSuchprofilAnlegen: () -> Unit,
+    kartenSteuerung: KartenSteuerung,
     onDetails: (Inserat) -> Unit,
 ) {
     val pager = state.pager
@@ -309,6 +317,8 @@ private fun ListContent(
             onBewerten = viewModel::bewerten,
             onSkip = viewModel::skip,
             onOpen = viewModel::open,
+            onDetails = onDetails,
+            steuerung = kartenSteuerung,
         )
         else -> Wischliste(
             items = pager.items,

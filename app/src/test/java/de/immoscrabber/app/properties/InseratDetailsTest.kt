@@ -3,6 +3,8 @@ package de.immoscrabber.app.properties
 import de.immoscrabber.app.core.model.Label
 import de.immoscrabber.app.core.model.PropertyType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.Clock
@@ -186,5 +188,21 @@ class InseratDetailsTest {
         assertEquals(items[1], sheetInserat(items, "2"))
         assertNull(sheetInserat(items, "3"))
         assertNull(sheetInserat(items, null))
+    }
+
+    // --- Inserat-ID ---
+
+    @Test
+    fun `lange ID gekürzt, kurze ganz`() {
+        assertEquals("ID 472f14b1-…", formatShortId("472f14b1-9c3e-4d2a-8f00-123456789abc"))
+        assertEquals("ID 4711", formatShortId("4711"))
+        assertEquals("ID 472f14b1-", formatShortId("472f14b1-"))
+    }
+
+    @Test
+    fun `eigene Rückmeldung zum Kopieren nur unter Android 13`() {
+        assertTrue(zeigeKopiertHinweis(sdkInt = 32))
+        assertFalse(zeigeKopiertHinweis(sdkInt = 33))
+        assertFalse(zeigeKopiertHinweis(sdkInt = 36))
     }
 }

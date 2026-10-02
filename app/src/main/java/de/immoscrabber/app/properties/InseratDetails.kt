@@ -75,3 +75,9 @@ fun segmentWechsel(current: Label, selected: Label): Label? = selected.takeIf { 
  * Hat es die Liste verlassen, `null`: Das Sheet schließt.
  */
 fun sheetInserat(items: List<Inserat>, id: String?): Inserat? = id?.let { items.firstOrNull { inserat -> inserat.id == it } }
+
+/** Inserat-ID unten im Sheet, für die Fehlersuche: „ID 472f14b1-…“ (die ersten 9 Zeichen), kurze IDs ganz. */
+fun formatShortId(id: String): String = if (id.length > 9) "ID ${id.take(9)}…" else "ID $id"
+
+/** Ab Android 13 meldet das System das Kopieren selbst; nur darunter zeigt die App „ID kopiert“. */
+fun zeigeKopiertHinweis(sdkInt: Int): Boolean = sdkInt < 33

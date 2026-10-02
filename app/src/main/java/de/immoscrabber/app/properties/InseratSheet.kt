@@ -1,12 +1,16 @@
 package de.immoscrabber.app.properties
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -101,6 +105,7 @@ fun InseratSheet(
                 Origin(inserat, clock)
                 Bewertung(inserat.label, onBewerten)
                 Actions(inserat, onOpen)
+                InseratId(inserat.id, snackbarHostState)
             }
             SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter))
         }
@@ -264,6 +269,29 @@ private fun Actions(inserat: Inserat, onOpen: () -> Unit) {
             Text(stringResource(R.string.share), Modifier.padding(start = 8.dp))
         }
     }
+}
+
+/** Inserat-ID klein und gedämpft, für die Fehlersuche; Tippen kopiert die ganze ID. */
+@Composable
+private fun ColumnScope.InseratId(id: String, snackbarHostState: SnackbarHostState) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val copied = stringResource(R.string.id_copied)
+    val description = stringResource(R.string.listing_id, id)
+    Text(
+        text = formatShortId(id),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        modifier = Modifier
+            .align(Alignment.CenterHorizontally)
+            .clickable(onClickLabel = stringResource(R.string.copy_id)) {
+                context.getSystemService(ClipboardManager::class.java)
+                    ?.setPrimaryClip(ClipData.newPlainText(description, id))
+                if (zeigeKopiertHinweis(Build.VERSION.SDK_INT)) scope.launch { snackbarHostState.showSnackbar(copied) }
+            }
+            .semantics { contentDescription = description }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    )
 }
 
 /** Android-Teilen-Menü mit dem Link als Text und dem Titel als Betreff. */
