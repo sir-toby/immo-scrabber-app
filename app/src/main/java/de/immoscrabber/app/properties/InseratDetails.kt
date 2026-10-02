@@ -5,6 +5,7 @@ import de.immoscrabber.app.core.model.Label
 import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -14,6 +15,7 @@ import java.time.temporal.ChronoUnit
 // Texte hier und nicht in den String-Ressourcen.
 
 private val DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+private val TIME = DateTimeFormatter.ofPattern("HH:mm")
 
 /**
  * „Gefunden heute / gestern / vor 3 Tagen“, ab 7 Tagen „Gefunden am 28.09.2026“. [createdAt] ist
@@ -30,6 +32,15 @@ fun formatGefunden(createdAt: String?, clock: Clock): String? {
         days < 7 -> "Gefunden vor $days Tagen"
         else -> "Gefunden am ${foundDay.format(DATE)}"
     }
+}
+
+/**
+ * Genauer Zeitpunkt für den Tooltip der Gefunden-Zeile: „Gefunden am 28.09.2026 um 14:32“ in
+ * [zone]; fehlt [createdAt] oder ist er unlesbar, `null` (kein Tooltip).
+ */
+fun formatGefundenGenau(createdAt: String?, zone: ZoneId): String? {
+    val found = parseServerTimestamp(createdAt)?.atOffset(ZoneOffset.UTC)?.atZoneSameInstant(zone) ?: return null
+    return "Gefunden am ${found.format(DATE)} um ${found.format(TIME)}"
 }
 
 private fun parseServerTimestamp(raw: String?): LocalDateTime? {

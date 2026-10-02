@@ -3,6 +3,7 @@ package de.immoscrabber.app.properties
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,15 +42,21 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +67,7 @@ import de.immoscrabber.app.core.model.Label
 import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.ui.theme.immoColors
 import java.time.Clock
+import kotlinx.coroutines.launch
 
 /**
  * Detail-Sheet eines Inserats der Wischliste (#14, Variante B „Kompakt + Status“): Kopf mit Bild,
@@ -176,15 +184,44 @@ private fun Origin(inserat: Inserat, clock: Clock) {
     val source = inserat.source?.trim()?.takeIf(String::isNotEmpty)
     if (gefunden == null && anbieter == null && source == null) return
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        gefunden?.let { IconLine(Icons.Outlined.Schedule, it, iconDescription = null) }
+        gefunden?.let { GefundenLine(it, formatGefundenGenau(inserat.createdAt, clock.zone)) }
         anbieter?.let { IconLine(Icons.Outlined.Business, it, stringResource(R.string.anbieter)) }
         source?.let { IconLine(Icons.Outlined.Language, it, stringResource(R.string.source)) }
     }
 }
 
+/**
+ * „Gefunden vor 3 Tagen“; Tipp und Long Press zeigen den genauen Zeitpunkt als Tooltip. TalkBack
+ * liest beides vor.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IconLine(icon: ImageVector, text: String, iconDescription: String?) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun GefundenLine(relative: String, exact: String?) {
+    if (exact == null) {
+        IconLine(Icons.Outlined.Schedule, relative, iconDescription = null)
+        return
+    }
+    val tooltipState = rememberTooltipState()
+    val scope = rememberCoroutineScope()
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(exact) } },
+        state = tooltipState,
+    ) {
+        IconLine(
+            Icons.Outlined.Schedule,
+            relative,
+            iconDescription = null,
+            modifier = Modifier
+                .clickable { scope.launch { tooltipState.show() } }
+                .clearAndSetSemantics { contentDescription = "$relative, $exact" },
+        )
+    }
+}
+
+@Composable
+private fun IconLine(icon: ImageVector, text: String, iconDescription: String?, modifier: Modifier = Modifier) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(icon, contentDescription = iconDescription, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

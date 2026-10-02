@@ -60,6 +60,8 @@ fun InseratRow(
             .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = onLongClickLabel)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
+        // Das Bild mittig zum (oft drei- bis vierzeiligen) Textblock.
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         InseratImage(inserat, Modifier.size(88.dp).clip(RoundedCornerShape(8.dp)))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

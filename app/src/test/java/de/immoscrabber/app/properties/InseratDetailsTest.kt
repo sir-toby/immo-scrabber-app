@@ -55,6 +55,23 @@ class InseratDetailsTest {
         assertNull(formatGefunden("gestern", clock))
     }
 
+    @Test
+    fun `genauer Zeitpunkt in der Zeitzone des Geräts`() {
+        // 12:32 UTC ist 14:32 in Berlin (Sommerzeit).
+        assertEquals("Gefunden am 28.09.2026 um 14:32", formatGefundenGenau("2026-09-28T12:32:59.177763", clock.zone))
+        // Über die Tagesgrenze: 22:05 UTC am 1.10. ist 00:05 am 2.10.
+        assertEquals("Gefunden am 02.10.2026 um 00:05", formatGefundenGenau("2026-10-01 22:05:00", clock.zone))
+        // Winterzeit: UTC+1.
+        assertEquals("Gefunden am 03.01.2025 um 09:00", formatGefundenGenau("2025-01-03T08:00:00", clock.zone))
+    }
+
+    @Test
+    fun `genauer Zeitpunkt fehlend oder unlesbar ohne Tooltip`() {
+        assertNull(formatGefundenGenau(null, clock.zone))
+        assertNull(formatGefundenGenau(" ", clock.zone))
+        assertNull(formatGefundenGenau("gestern", clock.zone))
+    }
+
     // --- Adresse ---
 
     @Test
