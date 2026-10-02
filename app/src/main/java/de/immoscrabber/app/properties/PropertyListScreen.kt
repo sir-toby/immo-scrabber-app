@@ -73,9 +73,11 @@ import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.Label
 import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.network.ApiError
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.withContext
 
 /**
  * Tab eines Immobilientyps. Das ViewModel hängt am Back-Stack-Eintrag des Tabs; Filter, Liste und
@@ -130,13 +132,18 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
     val sheetItem = if (state.filter == Filter.Neu) null else sheetInserat(state.pager.items, sheetId)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // Hat das Inserat die Liste verlassen (Favoriten/Archiv), schließt das Sheet mit dem zuletzt
-    // gezeigten Inhalt; kommt die Zeile per „Rückgängig“ zurück, bleibt es zu.
+    // gezeigten Inhalt (mit dem neu gewählten Label); kommt die Zeile per „Rückgängig“ zurück,
+    // bleibt es zu.
     val lastSheetItem = remember { arrayOfNulls<Inserat>(1) }
     val shownInSheet = sheetItem?.also { lastSheetItem[0] = it } ?: lastSheetItem[0]
     LaunchedEffect(sheetId, sheetItem == null, state.pager.loaded) {
         if (sheetId != null && sheetItem == null && state.pager.loaded) {
-            sheetState.hide()
-            sheetId = null
+            // Nicht abbrechbar: „Rückgängig“ während des Herausgleitens holt die Zeile zurück und
+            // startet den Effekt neu; das Sheet soll trotzdem ganz schließen.
+            withContext(NonCancellable) {
+                sheetState.hide()
+                sheetId = null
+            }
         }
     }
 
@@ -209,7 +216,12 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
             inserat = shownInSheet,
             sheetState = sheetState,
             snackbarHostState = snackbarHostState,
-            onBewerten = { label -> viewModel.bewerten(shownInSheet, label) },
+            onBewerten = { label ->
+                // Verlässt die Zeile die Liste, gleitet das Sheet mit diesem Stand heraus: das neue
+                // Label, nicht das alte (sonst springt der Umschalter sichtbar zurück).
+                lastSheetItem[0] = shownInSheet.copy(label = label)
+                viewModel.bewerten(shownInSheet, label)
+            },
             onOpen = { viewModel.open(shownInSheet) },
             onDismiss = { sheetId = null },
         )
