@@ -42,7 +42,7 @@ import de.immoscrabber.app.core.ui.theme.immoColors
 /**
  * Zeile der Wischliste (Entscheidung #6): Thumbnail, Preis, Titel (einzeilig), „PLZ Ort ·
  * Eckdaten“, darunter Quelle und Energieklasse; mit [showLabel] (nur „Alle“) das Label-Badge.
- * [onLongClick] (mit [onLongClickLabel] für TalkBack) öffnet das Zeilenmenü (#14), sofern es eins gibt.
+ * [onLongClick] (mit [onLongClickLabel] für TalkBack) öffnet das Detail-Sheet (#14).
  */
 @Composable
 fun InseratRow(

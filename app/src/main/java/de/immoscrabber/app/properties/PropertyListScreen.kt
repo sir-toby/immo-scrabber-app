@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -124,6 +125,21 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
     )
     var confirmArchiveAll by rememberSaveable { mutableStateOf(false) }
 
+    // Detail-Sheet der Wischliste (#14): die ID des Inserats, der Filterwechsel schließt es.
+    var sheetId by rememberSaveable(state.filter) { mutableStateOf<String?>(null) }
+    val sheetItem = if (state.filter == Filter.Neu) null else sheetInserat(state.pager.items, sheetId)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Hat das Inserat die Liste verlassen (Favoriten/Archiv), schließt das Sheet mit dem zuletzt
+    // gezeigten Inhalt; kommt die Zeile per „Rückgängig“ zurück, bleibt es zu.
+    val lastSheetItem = remember { arrayOfNulls<Inserat>(1) }
+    val shownInSheet = sheetItem?.also { lastSheetItem[0] = it } ?: lastSheetItem[0]
+    LaunchedEffect(sheetId, sheetItem == null, state.pager.loaded) {
+        if (sheetId != null && sheetItem == null && state.pager.loaded) {
+            sheetState.hide()
+            sheetId = null
+        }
+    }
+
     // collectLatest: jede neue Snackbar ersetzt die vorige, also bleibt nur die letzte
     // Bewertung rückgängig zu machen.
     LaunchedEffect(viewModel) {
@@ -152,10 +168,13 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
             )
         },
         snackbarHost = {
-            SnackbarHost(
-                snackbarHostState,
-                Modifier.padding(bottom = if (stackVisible) StackFooterHeight else 0.dp),
-            )
+            // Bei offenem Sheet zeigt es die Snackbar selbst (es liegt in einem eigenen Fenster darüber).
+            if (sheetId == null) {
+                SnackbarHost(
+                    snackbarHostState,
+                    Modifier.padding(bottom = if (stackVisible) StackFooterHeight else 0.dp),
+                )
+            }
         },
     ) { innerPadding ->
         Column(Modifier.padding(innerPadding).fillMaxSize()) {
@@ -180,9 +199,20 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                ListContent(state, typeName, listState, viewModel, onSuchprofilAnlegen)
+                ListContent(state, typeName, listState, viewModel, onSuchprofilAnlegen, onDetails = { sheetId = it.id })
             }
         }
+    }
+
+    if (sheetId != null && shownInSheet != null) {
+        InseratSheet(
+            inserat = shownInSheet,
+            sheetState = sheetState,
+            snackbarHostState = snackbarHostState,
+            onBewerten = { label -> viewModel.bewerten(shownInSheet, label) },
+            onOpen = { viewModel.open(shownInSheet) },
+            onDismiss = { sheetId = null },
+        )
     }
 
     if (confirmArchiveAll) {
@@ -235,6 +265,7 @@ private fun ListContent(
     listState: LazyListState,
     viewModel: PropertyListViewModel,
     onSuchprofilAnlegen: () -> Unit,
+    onDetails: (Inserat) -> Unit,
 ) {
     val pager = state.pager
     val loadState = pager.loadState
@@ -273,7 +304,7 @@ private fun ListContent(
             loadState = loadState,
             listState = listState,
             onBewerten = viewModel::bewerten,
-            onZurueckZuNeu = viewModel::zurueckZuNeu,
+            onDetails = onDetails,
             onOpen = viewModel::open,
             onLoadMore = viewModel::loadMore,
             onRetry = viewModel::retryLoading,
@@ -319,7 +350,7 @@ private fun Wischliste(
     loadState: LoadState,
     listState: LazyListState,
     onBewerten: (Inserat, Label) -> Unit,
-    onZurueckZuNeu: (Inserat) -> Unit,
+    onDetails: (Inserat) -> Unit,
     onOpen: (Inserat) -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
@@ -342,7 +373,7 @@ private fun Wischliste(
                     inserat = inserat,
                     filter = filter,
                     onBewerten = { label -> onBewerten(inserat, label) },
-                    onZurueckZuNeu = { onZurueckZuNeu(inserat) },
+                    onDetails = { onDetails(inserat) },
                     onClick = { onOpen(inserat) },
                 )
                 HorizontalDivider()

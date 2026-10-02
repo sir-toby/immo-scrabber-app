@@ -19,9 +19,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-/** Long Press → „Zurück zu Neu“ in der Wischliste (#14). */
+/** Umschalter Neu / Favorit / Archiv im Detail-Sheet der Wischliste (#14), über den bestehenden Bewertungsablauf. */
 @OptIn(ExperimentalCoroutinesApi::class)
-class ZurueckZuNeuTest {
+class BewertungImSheetTest {
     private val dispatcher = UnconfinedTestDispatcher()
     private val repository = FakeInseratRepository()
 
@@ -55,7 +55,7 @@ class ZurueckZuNeuTest {
         val vm = viewModelIn(Filter.Favoriten)
         val events = events(vm)
 
-        vm.zurueckZuNeu(vm.state.value.pager.items[1])
+        vm.bewerten(vm.state.value.pager.items[1], Label.UNBEWERTET)
         runCurrent()
 
         assertEquals(listOf("1", "3"), vm.ids)
@@ -67,7 +67,7 @@ class ZurueckZuNeuTest {
     fun `aus dem Archiv verlässt die Zeile die Liste`() = runTest(dispatcher) {
         val vm = viewModelIn(Filter.Archiv)
 
-        vm.zurueckZuNeu(vm.state.value.pager.items[0])
+        vm.bewerten(vm.state.value.pager.items[0], Label.UNBEWERTET)
         runCurrent()
 
         assertEquals(listOf("2", "3"), vm.ids)
@@ -81,7 +81,7 @@ class ZurueckZuNeuTest {
         )
         val vm = viewModelIn(Filter.Alle)
 
-        vm.zurueckZuNeu(vm.state.value.pager.items[1])
+        vm.bewerten(vm.state.value.pager.items[1], Label.UNBEWERTET)
         runCurrent()
 
         assertEquals(listOf("1", "2"), vm.ids)
@@ -90,12 +90,38 @@ class ZurueckZuNeuTest {
     }
 
     @Test
-    fun `ein unbewertetes Inserat bleibt unberührt`() = runTest(dispatcher) {
+    fun `unter Alle wird ein unbewertetes Inserat zum Favoriten und bleibt stehen`() = runTest(dispatcher) {
         repository.pages[null] = page(ids = 1..2)
         val vm = viewModelIn(Filter.Alle)
         val events = events(vm)
 
-        vm.zurueckZuNeu(vm.state.value.pager.items[0])
+        vm.bewerten(vm.state.value.pager.items[0], Label.INTERESSANT)
+        runCurrent()
+
+        assertEquals(listOf("1", "2"), vm.ids)
+        assertEquals(Label.INTERESSANT, vm.state.value.pager.items[0].label)
+        assertEquals(listOf(LabelRequest(PropertyType.HOUSE, "1", Label.INTERESSANT)), repository.labelRequests)
+        assertEquals(Label.INTERESSANT, (events.single() as ListEvent.Bewertet).label)
+    }
+
+    @Test
+    fun `aus Favoriten ins Archiv verlässt die Zeile die Liste`() = runTest(dispatcher) {
+        val vm = viewModelIn(Filter.Favoriten)
+
+        vm.bewerten(vm.state.value.pager.items[2], Label.UNINTERESSANT)
+        runCurrent()
+
+        assertEquals(listOf("1", "2"), vm.ids)
+        assertEquals(listOf(LabelRequest(PropertyType.HOUSE, "3", Label.UNINTERESSANT)), repository.labelRequests)
+    }
+
+    @Test
+    fun `das aktuelle Label erneut wählen tut nichts`() = runTest(dispatcher) {
+        repository.pages[null] = page(ids = 1..2)
+        val vm = viewModelIn(Filter.Alle)
+        val events = events(vm)
+
+        vm.bewerten(vm.state.value.pager.items[0], Label.UNBEWERTET)
         runCurrent()
 
         assertEquals(emptyList<LabelRequest>(), repository.labelRequests)
@@ -106,7 +132,7 @@ class ZurueckZuNeuTest {
     fun `Rückgängig setzt das alte Label per PATCH und holt die Zeile an ihre Stelle zurück`() = runTest(dispatcher) {
         val vm = viewModelIn(Filter.Archiv)
         val events = events(vm)
-        vm.zurueckZuNeu(vm.state.value.pager.items[1])
+        vm.bewerten(vm.state.value.pager.items[1], Label.UNBEWERTET)
         runCurrent()
 
         vm.undo(events.last() as ListEvent.Bewertet)
@@ -123,7 +149,7 @@ class ZurueckZuNeuTest {
         val events = events(vm)
         repository.labelResult = networkError
 
-        vm.zurueckZuNeu(vm.state.value.pager.items[1])
+        vm.bewerten(vm.state.value.pager.items[1], Label.UNBEWERTET)
         runCurrent()
 
         assertEquals(listOf("1", "2", "3"), vm.ids)
@@ -143,7 +169,7 @@ class ZurueckZuNeuTest {
         val vm = viewModelIn(Filter.Favoriten)
         val requestsBefore = repository.pageRequests.size
 
-        vm.zurueckZuNeu(vm.state.value.pager.items[1])
+        vm.bewerten(vm.state.value.pager.items[1], Label.UNBEWERTET)
         runCurrent()
         assertEquals(requestsBefore, repository.pageRequests.size)
 

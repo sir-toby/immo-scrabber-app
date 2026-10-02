@@ -192,8 +192,9 @@ class PropertyListViewModel(
 
     /**
      * Bewertet optimistisch (Entscheidung #6): Verlässt das Inserat den Filter, fliegt die Zeile
-     * sofort heraus, sonst (unter „Alle“) wechselt nur das Label. Ein Wisch zum aktuellen Label
-     * tut nichts.
+     * sofort heraus, sonst (unter „Alle“) wechselt nur das Label. Ein Wisch oder Segment (Detail-Sheet,
+     * #14) zum aktuellen Label tut nichts. `unbewertet` heißt „Zurück zu Neu“: Das Backend löscht die
+     * Bewertung; den Veraltet-Merker braucht es dafür nicht, „Neu“ lädt beim Filterwechsel frisch (#10).
      */
     fun bewerten(inserat: Inserat, label: Label) {
         if (inserat.label == label) return
@@ -219,16 +220,6 @@ class PropertyListViewModel(
             }
         }
     }
-
-    /**
-     * Long Press → „Zurück zu Neu“ in der Wischliste (#14): eine Bewertung wie jede andere, nur mit
-     * dem Label `unbewertet` (das Backend löscht dann die Bewertung). Optimistisch, mit Rückgängig
-     * und „Erneut versuchen“ wie [bewerten]. Unbewertete Inserate bleiben unberührt.
-     *
-     * Den Veraltet-Merker braucht es nicht: Er gilt je Typ, nicht je Filter, und würde nur die
-     * sichtbare Wischliste neu laden; „Neu“ lädt beim Filterwechsel ohnehin frisch (#10).
-     */
-    fun zurueckZuNeu(inserat: Inserat) = bewerten(inserat, Label.UNBEWERTET)
 
     /** „Erneut versuchen“ nach einem gescheiterten PATCH. */
     fun retry(failed: ListEvent.BewertungFehlgeschlagen) = bewerten(failed.inserat, failed.label)
@@ -280,8 +271,8 @@ class PropertyListViewModel(
 
     /** Tipp auf eine Zeile: Inserat öffnen oder „Kein Link zum Inserat“. */
     fun open(inserat: Inserat) {
-        val url = inserat.url?.trim()
-        _events.trySend(if (url.isNullOrEmpty()) ListEvent.NoLink else ListEvent.OpenLink(url))
+        val url = inseratLink(inserat)
+        _events.trySend(if (url == null) ListEvent.NoLink else ListEvent.OpenLink(url))
     }
 
     /** Pull-to-Refresh: verwirft den Cursor und lädt von oben. */
