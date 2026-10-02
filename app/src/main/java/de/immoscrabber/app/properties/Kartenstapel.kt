@@ -140,6 +140,7 @@ fun Kartenstapel(
             currentOnBewerten(item, label)
         }
         flying.retainAll(ids)
+        steuerung.behalte(items.mapTo(HashSet()) { it.id })
     }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val height = maxHeight
@@ -169,7 +170,8 @@ fun Kartenstapel(
                                 onClick = { onOpen(inserat) },
                                 onLongPress = { onDetails(inserat) },
                                 wischAnfrage = steuerung.anfrage?.takeIf { it.id == inserat.id }?.label,
-                                onWischAnfrageErledigt = { steuerung.anfrage = null },
+                                onWischAnfrageUebernehmen = { steuerung.uebernehmen(inserat.id) },
+                                onWischAnfrageVerwerfen = steuerung::verwerfen,
                             )
                         }
                     }
@@ -201,10 +203,39 @@ class KartenSteuerung {
     data class Anfrage(val id: String, val label: Label)
 
     var anfrage by mutableStateOf<Anfrage?>(null)
+        private set
 
-    /** `unbewertet` (Neu) ist im Stapel das aktuelle Label und tut nichts. */
+    // Karten, die schon herausfliegen; bis sie den Stapel verlassen, zählt kein weiteres Segment.
+    private val gestartet = mutableSetOf<String>()
+
+    /**
+     * Segment im Sheet: `unbewertet` (Neu) ist im Stapel das aktuelle Label und tut nichts, ebenso
+     * jedes Segment, solange die Karte schon herausfliegt.
+     */
     fun wischen(inserat: Inserat, label: Label) {
-        if (label != Label.UNBEWERTET) anfrage = Anfrage(inserat.id, label)
+        if (label != Label.UNBEWERTET && inserat.id !in gestartet) anfrage = Anfrage(inserat.id, label)
+    }
+
+    /** Die Karte [id] nimmt die Anfrage an und fliegt heraus; `null`, wenn keine für sie da ist. */
+    fun uebernehmen(id: String): Label? {
+        val label = anfrage?.takeIf { it.id == id }?.label ?: return null
+        anfrage = null
+        gestartet += id
+        return label
+    }
+
+    /** Die Karte kann die Anfrage nicht ausführen (nicht oben): Sie verfällt. */
+    fun verwerfen() {
+        anfrage = null
+    }
+
+    /**
+     * Abgleich mit dem Stapel: Anfragen und Flüge von Karten, die ihn verlassen haben, verfallen.
+     * Holt „Rückgängig“ eine Karte zurück, fliegt sie so nicht erneut heraus.
+     */
+    fun behalte(ids: Set<String>) {
+        if (anfrage?.id?.let { it !in ids } == true) anfrage = null
+        gestartet.retainAll(ids)
     }
 }
 
@@ -240,7 +271,8 @@ private fun StackItem(
     onClick: () -> Unit,
     onLongPress: () -> Unit,
     wischAnfrage: Label?,
-    onWischAnfrageErledigt: () -> Unit,
+    onWischAnfrageUebernehmen: () -> Label?,
+    onWischAnfrageVerwerfen: () -> Unit,
 ) {
     // Rückt eine Karte nach vorn, wächst sie weich auf volle Größe.
     val animatedDepth by animateFloatAsState(depth.toFloat(), label = "depth")
@@ -327,9 +359,10 @@ private fun StackItem(
 
     // Bewertung aus dem Sheet: wie ein Wisch in die Richtung des Labels.
     LaunchedEffect(wischAnfrage, isTop) {
-        val label = wischAnfrage ?: return@LaunchedEffect
-        if (!isTop || swipe.flyingOut) return@LaunchedEffect
-        onWischAnfrageErledigt()
+        if (wischAnfrage == null) return@LaunchedEffect
+        // Auch beim Abbruch weg damit: Sonst flöge die Karte nach „Rückgängig“ ein zweites Mal.
+        if (!isTop || swipe.flyingOut) return@LaunchedEffect onWischAnfrageVerwerfen()
+        val label = onWischAnfrageUebernehmen() ?: return@LaunchedEffect
         flyOut(direction = if (label == swipeLabel(rightward = true)) 1 else -1, velocity = 0f)
     }
 
@@ -424,6 +457,10 @@ private fun StackItem(
  *
  * Liegt der Finger bis zum Long-Press-Timeout still, meldet sie [onLongPress] (Detail-Sheet, #14)
  * und verbraucht den Rest der Geste, damit weder Ziehen noch Pull-to-Refresh übernehmen.
+ *
+ * Bewusster Kompromiss: Unter starker Last (Bewegungen kommen verspätet oder gar nicht, wie in #51)
+ * kann ein langsamer Wisch, der länger als der Timeout dauert, als Long Press gelten und das Sheet
+ * öffnen statt zu bewerten. Schnelle Wische (unter dem Timeout) bleiben Wische.
  */
 private suspend fun PointerInputScope.observeRelease(onLongPress: () -> Unit, onRelease: (KartenGeste.Ende) -> Unit) {
     val timeout = viewConfiguration.longPressTimeoutMillis
