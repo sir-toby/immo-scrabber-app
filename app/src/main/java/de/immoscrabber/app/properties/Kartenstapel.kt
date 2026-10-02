@@ -60,7 +60,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -106,6 +109,9 @@ private val SnackbarSpace = 72.dp
  * zeigt ein Stempel die Richtung, sonst keine Richtungshinweise. Darunter „N übrig“ und
  * „Überspringen“.
  *
+ * Long Press auf die oberste Karte öffnet das Detail-Sheet ([onDetails], #14); bewertet der
+ * Umschalter dort, wischt [steuerung] die Karte heraus wie ein Wisch.
+ *
  * Vertikal scrollbar, damit Pull-to-Refresh auch über dem Stapel greift.
  */
 @Composable
@@ -115,6 +121,8 @@ fun Kartenstapel(
     onBewerten: (Inserat, Label) -> Unit,
     onSkip: (Inserat) -> Unit,
     onOpen: (Inserat) -> Unit,
+    onDetails: (Inserat) -> Unit,
+    steuerung: KartenSteuerung,
     modifier: Modifier = Modifier,
 ) {
     // Karten, deren Bewertung entschieden ist und die gerade hinausfliegen. Sie liegen vorn in
@@ -132,6 +140,7 @@ fun Kartenstapel(
             currentOnBewerten(item, label)
         }
         flying.retainAll(ids)
+        steuerung.behalte(items.mapTo(HashSet()) { it.id })
     }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val height = maxHeight
@@ -159,6 +168,10 @@ fun Kartenstapel(
                                     folge.start(inserat)
                                 },
                                 onClick = { onOpen(inserat) },
+                                onLongPress = { onDetails(inserat) },
+                                wischAnfrage = steuerung.anfrage?.takeIf { it.id == inserat.id }?.label,
+                                onWischAnfrageUebernehmen = { steuerung.uebernehmen(inserat.id) },
+                                onWischAnfrageVerwerfen = steuerung::verwerfen,
                             )
                         }
                     }
@@ -179,6 +192,50 @@ fun Kartenstapel(
                 }
             }
         }
+    }
+}
+
+/**
+ * Bewertung aus dem Detail-Sheet (#14) für die oberste Karte: Sie fliegt heraus wie nach einem
+ * Wisch, über denselben Ablauf (Reihenfolge, Snackbar, Rückgängig).
+ */
+class KartenSteuerung {
+    data class Anfrage(val id: String, val label: Label)
+
+    var anfrage by mutableStateOf<Anfrage?>(null)
+        private set
+
+    // Karten, die schon herausfliegen; bis sie den Stapel verlassen, zählt kein weiteres Segment.
+    private val gestartet = mutableSetOf<String>()
+
+    /**
+     * Segment im Sheet: `unbewertet` (Neu) ist im Stapel das aktuelle Label und tut nichts, ebenso
+     * jedes Segment, solange die Karte schon herausfliegt.
+     */
+    fun wischen(inserat: Inserat, label: Label) {
+        if (label != Label.UNBEWERTET && inserat.id !in gestartet) anfrage = Anfrage(inserat.id, label)
+    }
+
+    /** Die Karte [id] nimmt die Anfrage an und fliegt heraus; `null`, wenn keine für sie da ist. */
+    fun uebernehmen(id: String): Label? {
+        val label = anfrage?.takeIf { it.id == id }?.label ?: return null
+        anfrage = null
+        gestartet += id
+        return label
+    }
+
+    /** Die Karte kann die Anfrage nicht ausführen (nicht oben): Sie verfällt. */
+    fun verwerfen() {
+        anfrage = null
+    }
+
+    /**
+     * Abgleich mit dem Stapel: Anfragen und Flüge von Karten, die ihn verlassen haben, verfallen.
+     * Holt „Rückgängig“ eine Karte zurück, fliegt sie so nicht erneut heraus.
+     */
+    fun behalte(ids: Set<String>) {
+        if (anfrage?.id?.let { it !in ids } == true) anfrage = null
+        gestartet.retainAll(ids)
     }
 }
 
@@ -212,6 +269,10 @@ private fun StackItem(
     onBewerten: (Label) -> Unit,
     onFlyOut: () -> Unit,
     onClick: () -> Unit,
+    onLongPress: () -> Unit,
+    wischAnfrage: Label?,
+    onWischAnfrageUebernehmen: () -> Label?,
+    onWischAnfrageVerwerfen: () -> Unit,
 ) {
     // Rückt eine Karte nach vorn, wächst sie weich auf volle Größe.
     val animatedDepth by animateFloatAsState(depth.toFloat(), label = "depth")
@@ -226,13 +287,35 @@ private fun StackItem(
     val flingVelocity = with(density) { FLING_VELOCITY.toPx() }
     val stackOffset = with(density) { 10.dp.toPx() }
     val swipe = remember { SwipeState() }
+    val showDetails = stringResource(R.string.show_details)
     val currentOnBewerten by rememberUpdatedState(onBewerten)
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnFlyOut by rememberUpdatedState(onFlyOut)
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
     // Gesten sind auf jeder Karte aktiv und prüfen erst beim Auslösen, ob sie oben liegt: Schaltete
     // `enabled` mitten in einer Geste um (die Karte davor fliegt gerade heraus), setzt Compose die
     // Zeigerverarbeitung zurück, und ein Wisch käme als Tippen an.
     val currentIsTop by rememberUpdatedState(isTop)
+
+    // Herausfliegen und danach bewerten; [direction] 1 = rechts (interessant), -1 = links.
+    fun flyOut(direction: Int, velocity: Float) {
+        swipe.settle?.cancel()
+        val x = swipe.offset
+        swipe.flyingOut = true
+        currentOnFlyOut()
+        val target = direction * screenWidth * 1.5f
+        // Mindestens mit Fling-Geschwindigkeit weiter; ein schneller Wisch fliegt schneller ab.
+        val speed = max(abs(velocity), flingVelocity)
+        val duration = (abs(target - x) / speed * 1000).toInt().coerceIn(120, 300)
+        swipe.settle = scope.launch {
+            try {
+                animate(x, target, velocity, tween(duration, easing = LinearEasing)) { value, _ -> swipe.offset = value }
+            } finally {
+                // Auch wenn die Karte vorher den Stapel verlässt: Die Bewertung ist entschieden.
+                currentOnBewerten(swipeLabel(rightward = direction > 0))
+            }
+        }
+    }
 
     // Nach jedem Loslassen oder Abbruch: herausfliegen und bewerten oder zurück in die Mitte.
     fun settle(velocity: Float) {
@@ -254,20 +337,7 @@ private fun StackItem(
             }
             return
         }
-        swipe.flyingOut = true
-        currentOnFlyOut()
-        val target = direction * screenWidth * 1.5f
-        // Mindestens mit Fling-Geschwindigkeit weiter; ein schneller Wisch fliegt schneller ab.
-        val speed = max(abs(velocity), flingVelocity)
-        val duration = (abs(target - x) / speed * 1000).toInt().coerceIn(120, 300)
-        swipe.settle = scope.launch {
-            try {
-                animate(x, target, velocity, tween(duration, easing = LinearEasing)) { value, _ -> swipe.offset = value }
-            } finally {
-                // Auch wenn die Karte vorher den Stapel verlässt: Die Bewertung ist entschieden.
-                currentOnBewerten(swipeLabel(rightward = direction > 0))
-            }
-        }
+        flyOut(direction, velocity)
     }
 
     val dragState = rememberDraggableState { delta ->
@@ -279,6 +349,21 @@ private fun StackItem(
             swipe.armed = beyond
             if (beyond) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         }
+    }
+
+    fun longPress() {
+        if (!currentIsTop || swipe.flyingOut) return
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        currentOnLongPress()
+    }
+
+    // Bewertung aus dem Sheet: wie ein Wisch in die Richtung des Labels.
+    LaunchedEffect(wischAnfrage, isTop) {
+        if (wischAnfrage == null) return@LaunchedEffect
+        // Auch beim Abbruch weg damit: Sonst flöge die Karte nach „Rückgängig“ ein zweites Mal.
+        if (!isTop || swipe.flyingOut) return@LaunchedEffect onWischAnfrageVerwerfen()
+        val label = onWischAnfrageUebernehmen() ?: return@LaunchedEffect
+        flyOut(direction = if (label == swipeLabel(rightward = true)) 1 else -1, velocity = 0f)
     }
 
     // Unter Last kommen Bewegungen verspätet oder gar nicht an (#51); das Loslassen bringt dann
@@ -298,6 +383,8 @@ private fun StackItem(
                     swipe.offset += ende.restDx
                     if (!swipe.dragging) settle(velocity = 0f)
                 }
+                // Das Loslassen kam vor dem Timer an: Das Sheet öffnet erst jetzt.
+                is KartenGeste.Ende.LangGedrueckt -> if (ende.erstBeimLoslassen) longPress()
                 KartenGeste.Ende.Tippen, KartenGeste.Ende.Verworfen, KartenGeste.Ende.Gescrollt -> Unit
             }
         }
@@ -346,8 +433,13 @@ private fun StackItem(
                             },
                         )
                         // Vor `clickable`: ein Loslassen weit weg vom Aufsetzpunkt ist nie ein Tippen (#51).
-                        .pointerInput(Unit) { observeRelease { ende -> currentOnRelease(ende) } }
+                        .pointerInput(Unit) {
+                            observeRelease(onLongPress = { longPress() }) { ende -> currentOnRelease(ende) }
+                        }
                         .clickable { if (currentIsTop) currentOnClick() }
+                        .semantics {
+                            customActions = listOf(CustomAccessibilityAction(showDetails) { longPress(); true })
+                        }
                 },
             ),
     ) {
@@ -358,24 +450,61 @@ private fun StackItem(
 
 /**
  * Beobachtet jede Berührung im Initial-Durchlauf, also vor `clickable` weiter innen, und meldet
- * beim Loslassen, was sie war ([KartenGeste]). [KartenGeste.Ende.Sprung] und
- * [KartenGeste.Ende.Verworfen] verbraucht sie: `clickable` bricht ab, statt das Inserat zu öffnen. Sonst verbraucht sie nichts, Tippen und
- * Ziehen behalten ihr Verhalten.
+ * beim Loslassen, was sie war ([KartenGeste]). [KartenGeste.Ende.Sprung],
+ * [KartenGeste.Ende.Verworfen] und [KartenGeste.Ende.LangGedrueckt] verbraucht sie: `clickable`
+ * bricht ab, statt das Inserat zu öffnen. Sonst verbraucht sie nichts, Tippen und Ziehen behalten
+ * ihr Verhalten.
+ *
+ * Liegt der Finger bis zum Long-Press-Timeout still, meldet sie [onLongPress] (Detail-Sheet, #14)
+ * und verbraucht den Rest der Geste, damit weder Ziehen noch Pull-to-Refresh übernehmen.
+ *
+ * Bewusster Kompromiss: Unter starker Last (Bewegungen kommen verspätet oder gar nicht, wie in #51)
+ * kann ein langsamer Wisch, der länger als der Timeout dauert, als Long Press gelten und das Sheet
+ * öffnen statt zu bewerten. Schnelle Wische (unter dem Timeout) bleiben Wische.
  */
-private suspend fun PointerInputScope.observeRelease(onRelease: (KartenGeste.Ende) -> Unit) {
-    val geste = KartenGeste(viewConfiguration.touchSlop)
+private suspend fun PointerInputScope.observeRelease(onLongPress: () -> Unit, onRelease: (KartenGeste.Ende) -> Unit) {
+    val timeout = viewConfiguration.longPressTimeoutMillis
+    val geste = KartenGeste(viewConfiguration.touchSlop, timeout)
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         geste.down(down.position, down.uptimeMillis)
+        val deadline = down.uptimeMillis + timeout
+        var lastUptime = down.uptimeMillis
+        // Bis zum Timeout oder bis eine Bewegung den Long Press ausschließt, läuft der Timer.
+        var timing = true
+        var longPressed = false
         while (true) {
-            val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+            val event = if (timing) {
+                withTimeoutOrNull((deadline - lastUptime).coerceAtLeast(0L)) { awaitPointerEvent(PointerEventPass.Initial) }
+            } else {
+                awaitPointerEvent(PointerEventPass.Initial)
+            }
+            if (event == null) {
+                timing = false
+                if (geste.longPress(deadline)) {
+                    longPressed = true
+                    onLongPress()
+                }
+                continue
+            }
+            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+            lastUptime = change.uptimeMillis
             if (change.changedToUpIgnoreConsumed()) {
                 val ende = geste.up(change.position, change.uptimeMillis, step = change.positionChangeIgnoreConsumed())
-                if (ende is KartenGeste.Ende.Sprung || ende is KartenGeste.Ende.Verworfen) change.consume()
+                if (ende is KartenGeste.Ende.Sprung || ende is KartenGeste.Ende.Verworfen || ende is KartenGeste.Ende.LangGedrueckt) {
+                    change.consume()
+                }
                 onRelease(ende)
                 break
             }
             geste.move(change.position)
+            // Kam der Timer verspätet (Last), zählt auch der Zeitstempel des Ereignisses.
+            if (timing && geste.longPress(change.uptimeMillis)) {
+                timing = false
+                longPressed = true
+                onLongPress()
+            }
+            if (longPressed) change.consume()
         }
     }
 }
@@ -487,6 +616,8 @@ private fun KartenstapelPreview() {
                 onBewerten = { _, _ -> },
                 onSkip = {},
                 onOpen = {},
+                onDetails = {},
+                steuerung = remember { KartenSteuerung() },
             )
         }
     }

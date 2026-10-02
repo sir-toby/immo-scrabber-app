@@ -2,6 +2,8 @@ package de.immoscrabber.app.properties
 
 import androidx.compose.ui.geometry.Offset
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -108,6 +110,103 @@ class KartenGesteTest {
         geste.down(Offset(100f, 700f), uptimeMillis = 0)
         geste.move(Offset(400f, 700f))
         geste.up(Offset(900f, 700f), uptimeMillis = 150)
+        geste.down(Offset(500f, 700f), uptimeMillis = 1_000)
+        assertEquals(KartenGeste.Ende.Tippen, geste.up(Offset(500f, 700f), uptimeMillis = 1_080))
+    }
+
+    // --- Long Press öffnet das Detail-Sheet (#14) ---
+
+    private val timeout = 500L
+
+    @Test
+    fun `stillgehalten bis zum Timeout ist ein Long Press, genau einmal`() {
+        val geste = KartenGeste(slop, timeout)
+        geste.down(Offset(500f, 700f), uptimeMillis = 1_000)
+        assertFalse(geste.longPress(uptimeMillis = 1_499))
+        assertTrue(geste.longPress(uptimeMillis = 1_500))
+        assertFalse(geste.longPress(uptimeMillis = 1_600))
+    }
+
+    @Test
+    fun `Zittern innerhalb der Slop verhindert den Long Press nicht`() {
+        val geste = KartenGeste(slop, timeout)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        geste.move(Offset(510f, 708f))
+        assertTrue(geste.longPress(uptimeMillis = 500))
+    }
+
+    @Test
+    fun `nach dem Long Press ist das Loslassen weder Tippen noch Wisch`() {
+        val geste = KartenGeste(slop, timeout)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        geste.longPress(uptimeMillis = 500)
+        // Auch wenn der Finger danach noch wandert: Das Sheet ist offen, nichts wird bewertet.
+        geste.move(Offset(900f, 700f))
+        assertEquals(KartenGeste.Ende.LangGedrueckt(erstBeimLoslassen = false), geste.up(Offset(900f, 700f), uptimeMillis = 900))
+    }
+
+    @Test
+    fun `waagrecht über die Slop bewegt vor dem Timeout ist ein Wisch, kein Long Press`() {
+        val geste = KartenGeste(slop, timeout)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        geste.move(Offset(560f, 700f))
+        assertFalse(geste.longPress(uptimeMillis = 600))
+        assertEquals(KartenGeste.Ende.Gezogen(restDx = 0f), geste.up(Offset(900f, 700f), uptimeMillis = 700))
+    }
+
+    @Test
+    fun `senkrecht bewegt (Pull-to-Refresh) ist kein Long Press`() {
+        val geste = KartenGeste(slop, timeout)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        geste.move(Offset(500f, 760f))
+        assertFalse(geste.longPress(uptimeMillis = 600))
+    }
+
+    @Test
+    fun `zuletzt gemeldete Position außerhalb der Slop verhindert den Long Press`() {
+        // Bewegung kam an, aber noch ohne Achsenentscheidung (diagonal knapp über der Slop zurück).
+        val geste = KartenGeste(slop, timeout)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        geste.move(Offset(515f, 714f))
+        assertFalse(geste.longPress(uptimeMillis = 600))
+    }
+
+    @Test
+    fun `schneller Wisch ohne Bewegung dazwischen bleibt ein Sprung (#51)`() {
+        val geste = KartenGeste(slop, timeout)
+        geste.down(Offset(758f, 711f), uptimeMillis = 1_000)
+        assertFalse(geste.longPress(uptimeMillis = 1_150))
+        assertEquals(KartenGeste.Ende.Sprung(dx = -720f, velocity = -4_800f), geste.up(Offset(38f, 731f), uptimeMillis = 1_150))
+    }
+
+    @Test
+    fun `still losgelassen nach dem Timeout, ohne dass der Long Press ankam, öffnet beim Loslassen`() {
+        // Unter Last kann das Loslassen vor dem Timer verarbeitet werden.
+        val geste = KartenGeste(slop, timeout)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        assertEquals(KartenGeste.Ende.LangGedrueckt(erstBeimLoslassen = true), geste.up(Offset(505f, 700f), uptimeMillis = 700))
+    }
+
+    @Test
+    fun `kurz still losgelassen bleibt ein Tippen`() {
+        val geste = KartenGeste(slop, timeout)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        assertEquals(KartenGeste.Ende.Tippen, geste.up(Offset(500f, 700f), uptimeMillis = 499))
+    }
+
+    @Test
+    fun `weit weg losgelassen nach dem Timeout ohne Bewegung dazwischen bleibt ein Sprung`() {
+        val geste = KartenGeste(slop, timeout)
+        geste.down(Offset(800f, 700f), uptimeMillis = 0)
+        assertEquals(KartenGeste.Ende.Sprung(dx = -400f, velocity = -400f), geste.up(Offset(400f, 700f), uptimeMillis = 1_000))
+    }
+
+    @Test
+    fun `der Long Press gilt nur für seine Geste`() {
+        val geste = KartenGeste(slop, timeout)
+        geste.down(Offset(500f, 700f), uptimeMillis = 0)
+        geste.longPress(uptimeMillis = 500)
+        geste.up(Offset(500f, 700f), uptimeMillis = 600)
         geste.down(Offset(500f, 700f), uptimeMillis = 1_000)
         assertEquals(KartenGeste.Ende.Tippen, geste.up(Offset(500f, 700f), uptimeMillis = 1_080))
     }

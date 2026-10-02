@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -72,9 +73,11 @@ import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.Label
 import de.immoscrabber.app.core.model.PropertyType
 import de.immoscrabber.app.core.network.ApiError
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.withContext
 
 /**
  * Tab eines Immobilientyps. Das ViewModel hängt am Back-Stack-Eintrag des Tabs; Filter, Liste und
@@ -124,6 +127,29 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
     )
     var confirmArchiveAll by rememberSaveable { mutableStateOf(false) }
 
+    // Detail-Sheet der Wischliste und des Kartenstapels (#14): die ID des Inserats, der
+    // Filterwechsel schließt es.
+    var sheetId by rememberSaveable(state.filter) { mutableStateOf<String?>(null) }
+    val sheetItem = sheetInserat(state.pager.items, sheetId)
+    // Im Kartenstapel bewertet der Umschalter wie ein Wisch.
+    val kartenSteuerung = remember(state.filter) { KartenSteuerung() }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Hat das Inserat die Liste verlassen (Favoriten/Archiv), schließt das Sheet mit dem zuletzt
+    // gezeigten Inhalt (mit dem neu gewählten Label); kommt die Zeile per „Rückgängig“ zurück,
+    // bleibt es zu.
+    val lastSheetItem = remember { arrayOfNulls<Inserat>(1) }
+    val shownInSheet = sheetItem?.also { lastSheetItem[0] = it } ?: lastSheetItem[0]
+    LaunchedEffect(sheetId, sheetItem == null, state.pager.loaded) {
+        if (sheetId != null && sheetItem == null && state.pager.loaded) {
+            // Nicht abbrechbar: „Rückgängig“ während des Herausgleitens holt die Zeile zurück und
+            // startet den Effekt neu; das Sheet soll trotzdem ganz schließen.
+            withContext(NonCancellable) {
+                sheetState.hide()
+                sheetId = null
+            }
+        }
+    }
+
     // collectLatest: jede neue Snackbar ersetzt die vorige, also bleibt nur die letzte
     // Bewertung rückgängig zu machen.
     LaunchedEffect(viewModel) {
@@ -152,10 +178,13 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
             )
         },
         snackbarHost = {
-            SnackbarHost(
-                snackbarHostState,
-                Modifier.padding(bottom = if (stackVisible) StackFooterHeight else 0.dp),
-            )
+            // Bei offenem Sheet zeigt es die Snackbar selbst (es liegt in einem eigenen Fenster darüber).
+            if (sheetId == null) {
+                SnackbarHost(
+                    snackbarHostState,
+                    Modifier.padding(bottom = if (stackVisible) StackFooterHeight else 0.dp),
+                )
+            }
         },
     ) { innerPadding ->
         Column(Modifier.padding(innerPadding).fillMaxSize()) {
@@ -180,9 +209,29 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                ListContent(state, typeName, listState, viewModel, onSuchprofilAnlegen)
+                ListContent(state, typeName, listState, viewModel, onSuchprofilAnlegen, kartenSteuerung, onDetails = { sheetId = it.id })
             }
         }
+    }
+
+    if (sheetId != null && shownInSheet != null) {
+        InseratSheet(
+            inserat = shownInSheet,
+            sheetState = sheetState,
+            snackbarHostState = snackbarHostState,
+            onBewerten = { label ->
+                // Verlässt die Zeile die Liste, gleitet das Sheet mit diesem Stand heraus: das neue
+                // Label, nicht das alte (sonst springt der Umschalter sichtbar zurück).
+                lastSheetItem[0] = shownInSheet.copy(label = label)
+                if (state.filter == Filter.Neu) {
+                    kartenSteuerung.wischen(shownInSheet, label)
+                } else {
+                    viewModel.bewerten(shownInSheet, label)
+                }
+            },
+            onOpen = { viewModel.open(shownInSheet) },
+            onDismiss = { sheetId = null },
+        )
     }
 
     if (confirmArchiveAll) {
@@ -235,6 +284,8 @@ private fun ListContent(
     listState: LazyListState,
     viewModel: PropertyListViewModel,
     onSuchprofilAnlegen: () -> Unit,
+    kartenSteuerung: KartenSteuerung,
+    onDetails: (Inserat) -> Unit,
 ) {
     val pager = state.pager
     val loadState = pager.loadState
@@ -266,6 +317,8 @@ private fun ListContent(
             onBewerten = viewModel::bewerten,
             onSkip = viewModel::skip,
             onOpen = viewModel::open,
+            onDetails = onDetails,
+            steuerung = kartenSteuerung,
         )
         else -> Wischliste(
             items = pager.items,
@@ -273,7 +326,7 @@ private fun ListContent(
             loadState = loadState,
             listState = listState,
             onBewerten = viewModel::bewerten,
-            onZurueckZuNeu = viewModel::zurueckZuNeu,
+            onDetails = onDetails,
             onOpen = viewModel::open,
             onLoadMore = viewModel::loadMore,
             onRetry = viewModel::retryLoading,
@@ -319,7 +372,7 @@ private fun Wischliste(
     loadState: LoadState,
     listState: LazyListState,
     onBewerten: (Inserat, Label) -> Unit,
-    onZurueckZuNeu: (Inserat) -> Unit,
+    onDetails: (Inserat) -> Unit,
     onOpen: (Inserat) -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
@@ -342,7 +395,7 @@ private fun Wischliste(
                     inserat = inserat,
                     filter = filter,
                     onBewerten = { label -> onBewerten(inserat, label) },
-                    onZurueckZuNeu = { onZurueckZuNeu(inserat) },
+                    onDetails = { onDetails(inserat) },
                     onClick = { onOpen(inserat) },
                 )
                 HorizontalDivider()

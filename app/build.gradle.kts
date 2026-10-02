@@ -19,6 +19,22 @@ val appVersion = AppVersion.fromTag(
         .orNull,
 )
 
+// Commit für die Versionszeile der Debug-Builds („0.0.0-dev (a6ed8ea)“), mit „-dirty“ bei
+// ungespeicherten Änderungen an versionierten Dateien. providers.exec ist mit dem
+// Configuration-Cache verträglich. Ohne git (seltsame Checkouts) „unknown“.
+fun gitOutput(vararg args: String): String? = try {
+    providers.exec {
+        commandLine("git", *args)
+        isIgnoreExitValue = true
+    }.let { result -> if (result.result.get().exitValue == 0) result.standardOutput.asText.get().trim() else null }
+} catch (_: Exception) {
+    null
+}
+val gitSha: String = gitOutput("rev-parse", "--short", "HEAD")?.takeIf(String::isNotEmpty)?.let { sha ->
+    val dirty = gitOutput("status", "--porcelain", "--untracked-files=no").orEmpty().isNotEmpty()
+    if (dirty) "$sha-dirty" else sha
+} ?: "unknown"
+
 // Voreingestellter Prod-Server. Bewusst nicht im Repo: Umgebungsvariable IMMO_PROD_BASE_URL
 // (CI-Secret) oder lokal `immo.prodBaseUrl` in local.properties. Fehlt sie, bleibt das Server-Feld
 // im Login leer; der Release-Build bricht dann ab.
@@ -79,6 +95,7 @@ android {
             applicationIdSuffix = ".debug"
             // Nur zum Testen: Schwelle des Veraltet-Merkers verkürzen, z. B. -Pimmo.staleAfterSeconds=20.
             buildConfigField("long", "STALE_AFTER_SECONDS", "${staleAfterSeconds}L")
+            buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
         }
         release {
             isMinifyEnabled = true
@@ -86,6 +103,8 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release")
             buildConfigField("long", "STALE_AFTER_SECONDS", "${DEFAULT_STALE_AFTER_SECONDS}L")
+            // Release zeigt nur die Version („Immo-Finder 1.1.0“).
+            buildConfigField("String", "GIT_SHA", "\"\"")
         }
     }
 

@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -16,10 +14,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -27,7 +22,6 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import de.immoscrabber.app.R
 import de.immoscrabber.app.core.model.Inserat
@@ -41,17 +35,17 @@ import de.immoscrabber.app.core.model.Label
  * - Alle beide Richtungen: die Zeile federt zurück, nur das Badge wechselt. Ein Wisch in
  *   Richtung des aktuellen Labels federt ohne Bewertung zurück.
  *
- * Long Press auf eine bewertete Zeile öffnet ein Menü mit „Zurück zu Neu“ (#14); für TalkBack steht
- * die Aktion zusätzlich direkt als Custom Action an der Zeile. Unbewertete Zeilen (unter „Alle“)
- * haben kein Menü. Long Press und Wischen kommen sich nicht in die Quere: Sobald der Finger sich
- * über die Touch-Slop hinaus bewegt, übernimmt das Wischen und der Long Press entfällt.
+ * Long Press auf jede Zeile (auch unbewertet unter „Alle“) öffnet das Detail-Sheet (#14); für
+ * TalkBack steht das zusätzlich als Custom Action an der Zeile. Long Press und Wischen kommen sich
+ * nicht in die Quere: Sobald der Finger sich über die Touch-Slop hinaus bewegt, übernimmt das
+ * Wischen und der Long Press entfällt.
  */
 @Composable
 fun SwipeableInseratRow(
     inserat: Inserat,
     filter: Filter,
     onBewerten: (Label) -> Unit,
-    onZurueckZuNeu: () -> Unit,
+    onDetails: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -74,49 +68,25 @@ fun SwipeableInseratRow(
         }
     }
 
-    val bewertet = inserat.label != Label.UNBEWERTET
-    var menuOpen by remember { mutableStateOf(false) }
-    val backToNew = stringResource(R.string.back_to_new)
-    val a11y = if (bewertet) {
-        Modifier.semantics {
-            customActions = listOf(CustomAccessibilityAction(backToNew) { onZurueckZuNeu(); true })
-        }
-    } else {
-        Modifier
-    }
-
-    Box(modifier) {
-        SwipeToDismissBox(
-            state = state,
-            enableDismissFromStartToEnd = filter != Filter.Favoriten,
-            enableDismissFromEndToStart = filter != Filter.Archiv,
-            backgroundContent = { SwipeBackground(state.dismissDirection) },
-        ) {
-            InseratRow(
-                inserat,
-                showLabel = filter == Filter.Alle,
-                onClick = onClick,
-                // An der Zeile selbst: TalkBack fokussiert den zusammengeführten klickbaren Knoten.
-                modifier = a11y,
-                // Unbewertet tut Long Press nichts (sonst zählte das Loslassen als Tipp und öffnete das Inserat).
-                onLongClick = if (bewertet) ({ menuOpen = true }) else ({}),
-                onLongClickLabel = if (bewertet) stringResource(R.string.row_menu) else null,
-            )
-        }
-        // Unter der Zeile, auf Höhe ihres Innenabstands.
-        DropdownMenu(
-            expanded = menuOpen && bewertet,
-            onDismissRequest = { menuOpen = false },
-            offset = DpOffset(16.dp, 0.dp),
-        ) {
-            DropdownMenuItem(
-                text = { Text(backToNew) },
-                onClick = {
-                    menuOpen = false
-                    onZurueckZuNeu()
-                },
-            )
-        }
+    val showDetails = stringResource(R.string.show_details)
+    SwipeToDismissBox(
+        state = state,
+        modifier = modifier,
+        enableDismissFromStartToEnd = filter != Filter.Favoriten,
+        enableDismissFromEndToStart = filter != Filter.Archiv,
+        backgroundContent = { SwipeBackground(state.dismissDirection) },
+    ) {
+        InseratRow(
+            inserat,
+            showLabel = filter == Filter.Alle,
+            onClick = onClick,
+            // An der Zeile selbst: TalkBack fokussiert den zusammengeführten klickbaren Knoten.
+            modifier = Modifier.semantics {
+                customActions = listOf(CustomAccessibilityAction(showDetails) { onDetails(); true })
+            },
+            onLongClick = onDetails,
+            onLongClickLabel = showDetails,
+        )
     }
 }
 

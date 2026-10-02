@@ -44,6 +44,7 @@ import de.immoscrabber.app.properties.pluralName
 import de.immoscrabber.app.settings.KontoInfo
 import de.immoscrabber.app.settings.SettingsTab
 import de.immoscrabber.app.settings.SuchprofilEditor
+import de.immoscrabber.app.settings.appVersionLabel
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KClass
@@ -160,7 +161,7 @@ fun MainShell(session: Session, benachrichtigungen: Benachrichtigungen, logout: 
             composable<EinstellungenTab> {
                 SettingsTab(
                     repository = session.suchprofile,
-                    konto = KontoInfo(session.username, session.baseUrl, BuildConfig.VERSION_NAME),
+                    konto = KontoInfo(session.username, session.baseUrl, appVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)),
                     logout = logout,
                     benachrichtigungenErlaubt = benachrichtigungen::erlaubt,
                     benachrichtigungenEinstellungen = benachrichtigungen::systemEinstellungenIntent,
