@@ -13,6 +13,16 @@ export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"   # Windows / Git
 
 Die Debug-APK liegt danach unter `app/build/outputs/apk/debug/app-debug.apk`. Genau diese drei Tasks laufen auch als CI-Check bei jedem PR und jedem Push auf `main` (`.github/workflows/check.yml`). Lint bricht nur bei Errors ab, Warnungen stehen im Report.
 
+## Debug-APK aus der CI
+
+Jeder Lauf des Checks lädt seine Debug-APK als Artefakt `immo-finder-debug-pr<Nummer>` (bzw. `-main`) hoch, 14 Tage lang. Herunterladen: im PR unter *Checks → Check → Summary → Artifacts*, oder
+
+```bash
+gh run download --repo sir-toby/immo-scrabber-app --name immo-finder-debug-pr66
+```
+
+Die CI signiert sie mit einem festen Debug-Key aus den Secrets (siehe unten), daher lässt sich jede neue APK über die vorige installieren. Mit demselben Key wie Android Studio lokal gilt das auch für lokal gebaute Debug-APKs.
+
 ## Release
 
 1. Auf `main` einen Tag `vX.Y.Z` setzen und pushen:
@@ -34,6 +44,10 @@ Unter *Settings → Secrets and variables → Actions* im Repo:
 | `RELEASE_KEYSTORE_PASSWORD` | Passwort des Keystores |
 | `RELEASE_KEY_ALIAS` | Alias des Schlüssels (`immo-finder`) |
 | `RELEASE_KEY_PASSWORD` | Passwort des Schlüssels |
-| `IMMO_PROD_BASE_URL` | Voreingestellter Prod-Server, z. B. `https://…/api/` (bewusst nicht im Repo; lokal als `immo.prodBaseUrl` in `local.properties`) |
+| `IMMO_PROD_BASE_URL` | Voreingestellter Prod-Server, z. B. `https://…/api/` (bewusst nicht im Repo; lokal als `immo.prodBaseUrl` in `local.properties`). Auch der Check nutzt ihn für die Debug-APK |
+| `DEBUG_KEYSTORE_BASE64` | Debug-Keystore, Base64-kodiert, z. B. `base64 -w0 ~/.android/debug.keystore` |
+| `DEBUG_KEYSTORE_PASSWORD` | Passwort des Debug-Keystores (Android-Studio-Standard: `android`) |
+| `DEBUG_KEY_ALIAS` | Alias (Android-Studio-Standard: `androiddebugkey`) |
+| `DEBUG_KEY_PASSWORD` | Passwort des Schlüssels (Android-Studio-Standard: `android`) |
 
-`GITHUB_TOKEN` stellt GitHub Actions selbst bereit. Keystore und Passwörter gehören nie ins Repo.
+`GITHUB_TOKEN` stellt GitHub Actions selbst bereit. Keystore und Passwörter gehören nie ins Repo, auch nicht der Debug-Keystore: Die Debug-App spricht ebenfalls mit Prod. Der SHA-1 des Debug-Keys muss in Firebase bei der App `de.immoscrabber.app.debug` hinterlegt sein.

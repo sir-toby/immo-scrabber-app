@@ -1,6 +1,7 @@
 name: Check
 
 # Bei jedem PR und jedem Push auf main: Unit-Tests, Lint (nur Errors brechen ab) und Debug-Build.
+# Die Debug-APK hängt 14 Tage als Artefakt am Lauf.
 # Feature-Branches laufen über ihren PR, so gibt es pro Commit genau einen Lauf.
 on:
   push:
@@ -35,6 +36,23 @@ jobs:
 
       - name: Tests, Lint, Debug-Build
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug
+        env:
+          # Prod als voreingestellter Server und ein fester Debug-Key aus den Secrets, damit
+          # sich die APK über die vorige installieren lässt. Fehlen die Secrets (PR aus einem
+          # Fork), baut es trotzdem: ohne Server-Vorgabe, mit zufälligem Debug-Key.
+          IMMO_PROD_BASE_URL: ${{ secrets.IMMO_PROD_BASE_URL }}
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+          DEBUG_KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
+          DEBUG_KEY_ALIAS: ${{ secrets.DEBUG_KEY_ALIAS }}
+          DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
+
+      - name: Debug-APK hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: immo-finder-debug-${{ github.event.pull_request.number && format('pr{0}', github.event.pull_request.number) || 'main' }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
 
       - name: Lint-Report hochladen
         if: failure()
