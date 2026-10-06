@@ -60,6 +60,18 @@ class PropertiesApiTest {
     }
 
     @Test
+    fun `nicht mehr verfügbarer Favorit wird so gemappt, ohne Feld ist ein Inserat verfügbar`() = runTest {
+        mock.enqueue(jsonResponse(200, "properties/results_houses_interessant.json"))
+        mock.enqueue(jsonResponse(200, "properties/results_houses_page1.json"))
+
+        val favorit = mock.api.inserate(PropertyType.HOUSE, label = Label.INTERESSANT).value().inserate.single()
+        val ohneFeld = mock.api.inserate(PropertyType.HOUSE, label = null).value().inserate
+
+        assertEquals(true, favorit.nichtMehrVerfuegbar)
+        assertEquals(false, ohneFeld.any { it.nichtMehrVerfuegbar })
+    }
+
+    @Test
     fun `fehlende Werte bei Häusern kommen als null an`() = runTest {
         mock.enqueue(jsonResponse(200, "properties/results_houses_page1.json"))
 

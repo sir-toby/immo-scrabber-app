@@ -53,6 +53,10 @@ _Avoid_: Papierkorb, Abgelehnt, Nö
 **Alle**:
 Filter für alle Inserate eines Immobilientyps, gleich welches Label sie tragen.
 
+**Nicht mehr verfügbar**:
+Ein Inserat, das der Scraper bei seiner Quelle nicht mehr findet (in der ersten vollständigen Scraping-Runde ohne Treffer). Es verschwindet aus allen Filtern; nur ein Favorit bleibt, ausgegraut. Nach 90 Tagen wird es für alle gelöscht, auch als Favorit. Taucht es vorher wieder auf, ist es wieder normal sichtbar.
+_Avoid_: Veraltet, Stale, Abgelaufen
+
 **Überspringen**:
 Ein Inserat im Kartenstapel für jetzt zurückstellen, ohne es zu bewerten. Es bleibt unbewertet und kommt später wieder.
 _Avoid_: Später, Snooze

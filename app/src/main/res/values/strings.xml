@@ -55,6 +55,9 @@
     <string name="retry">Erneut versuchen</string>
     <string name="badge_favorite">Favorit</string>
     <string name="badge_archive">Archiv</string>
+    <!-- Favorit, den der Scraper bei der Quelle nicht mehr findet -->
+    <string name="badge_nicht_mehr_verfuegbar">Nicht mehr verfügbar</string>
+    <string name="nicht_mehr_verfuegbar_hinweis">Nicht mehr verfügbar – bei der Quelle nicht mehr gefunden</string>
     <string name="swipe_favorite">Favorit</string>
     <string name="swipe_archive">Archiv</string>
     <string name="rated_favorite">Als Favorit markiert</string>

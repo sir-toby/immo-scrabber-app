@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.LinkOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,8 +22,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -43,6 +48,7 @@ import de.immoscrabber.app.core.ui.theme.immoColors
  * Zeile der Wischliste (Entscheidung #6): Thumbnail, Preis, Titel (einzeilig), „PLZ Ort ·
  * Eckdaten“, darunter Quelle und Energieklasse; mit [showLabel] (nur „Alle“) das Label-Badge.
  * [onLongClick] (mit [onLongClickLabel] für TalkBack) öffnet das Detail-Sheet (#14).
+ * Bei einem nicht mehr verfügbaren Inserat ist das Bild ausgegraut, dazu kommt ein eigenes Badge.
  */
 @Composable
 fun InseratRow(
@@ -63,7 +69,9 @@ fun InseratRow(
         // Das Bild mittig zum (oft drei- bis vierzeiligen) Textblock.
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        InseratImage(inserat, Modifier.size(88.dp).clip(RoundedCornerShape(8.dp)))
+        // Ausgegraut wird nur das Bild - der Text soll lesbar bleiben.
+        val faded = if (inserat.nichtMehrVerfuegbar) Modifier.alpha(NICHT_MEHR_VERFUEGBAR_ALPHA) else Modifier
+        InseratImage(inserat, faded.size(88.dp).clip(RoundedCornerShape(8.dp)))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = formatPrice(inserat.price),
@@ -89,6 +97,7 @@ fun InseratRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                if (inserat.nichtMehrVerfuegbar) NichtMehrVerfuegbarBadge()
                 inserat.source?.let {
                     Text(
                         text = it,
@@ -129,6 +138,7 @@ internal fun InseratImage(inserat: Inserat, modifier: Modifier, iconSize: Dp = 3
                 model = url,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
+                colorFilter = if (inserat.nichtMehrVerfuegbar) graustufen else null,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -148,6 +158,16 @@ internal fun EnergyClassBadge(energyClass: String?, modifier: Modifier = Modifie
             .background(color)
             .padding(horizontal = 6.dp, vertical = 1.dp),
     )
+}
+
+/** Deckkraft des Bilds eines nicht mehr verfügbaren Inserats. */
+internal const val NICHT_MEHR_VERFUEGBAR_ALPHA = 0.5f
+
+private val graustufen = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+
+@Composable
+private fun NichtMehrVerfuegbarBadge() {
+    BadgePill(Icons.Outlined.LinkOff, stringResource(R.string.badge_nicht_mehr_verfuegbar), MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /** „♡ Favorit“ bzw. „Archiv“; unbewertet ohne Badge. */
@@ -189,6 +209,11 @@ private fun InseratRowPreview() {
         Column {
             InseratRow(
                 previewInserat(id = "1", label = Label.INTERESSANT),
+                showLabel = true,
+                onClick = {},
+            )
+            InseratRow(
+                previewInserat(id = "2", label = Label.INTERESSANT).copy(nichtMehrVerfuegbar = true),
                 showLabel = true,
                 onClick = {},
             )
