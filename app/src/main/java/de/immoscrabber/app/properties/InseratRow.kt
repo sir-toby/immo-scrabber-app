@@ -48,7 +48,7 @@ import de.immoscrabber.app.core.ui.theme.immoColors
  * Zeile der Wischliste (Entscheidung #6): Thumbnail, Preis, Titel (einzeilig), „PLZ Ort ·
  * Eckdaten“, darunter Quelle und Energieklasse; mit [showLabel] (nur „Alle“) das Label-Badge.
  * [onLongClick] (mit [onLongClickLabel] für TalkBack) öffnet das Detail-Sheet (#14).
- * Ein nicht mehr verfügbares Inserat ist ausgegraut und trägt dafür ein eigenes Badge.
+ * Bei einem nicht mehr verfügbaren Inserat ist das Bild ausgegraut, dazu kommt ein eigenes Badge.
  */
 @Composable
 fun InseratRow(
@@ -69,7 +69,7 @@ fun InseratRow(
         // Das Bild mittig zum (oft drei- bis vierzeiligen) Textblock.
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Ausgegraut wird der Inhalt, nicht die Badges - die sollen lesbar bleiben.
+        // Ausgegraut wird nur das Bild - der Text soll lesbar bleiben.
         val faded = if (inserat.nichtMehrVerfuegbar) Modifier.alpha(NICHT_MEHR_VERFUEGBAR_ALPHA) else Modifier
         InseratImage(inserat, faded.size(88.dp).clip(RoundedCornerShape(8.dp)))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -78,10 +78,9 @@ fun InseratRow(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
-                modifier = faded,
             )
             inserat.title?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = faded)
+                Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             val placeAndFacts = formatPlaceAndFacts(inserat)
             if (placeAndFacts.isNotEmpty()) {
@@ -91,7 +90,6 @@ fun InseratRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = faded,
                 )
             }
             Row(
@@ -107,10 +105,10 @@ fun InseratRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = faded.weight(1f, fill = false),
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                 }
-                if (inserat.propertyType.hasEnergyClass) EnergyClassBadge(inserat.energyEfficiencyClass, faded)
+                if (inserat.propertyType.hasEnergyClass) EnergyClassBadge(inserat.energyEfficiencyClass)
                 if (showLabel) {
                     Spacer(Modifier.weight(1f))
                     LabelBadge(inserat.label)
@@ -162,7 +160,7 @@ internal fun EnergyClassBadge(energyClass: String?, modifier: Modifier = Modifie
     )
 }
 
-/** Deckkraft des Inhalts eines nicht mehr verfügbaren Inserats. */
+/** Deckkraft des Bilds eines nicht mehr verfügbaren Inserats. */
 internal const val NICHT_MEHR_VERFUEGBAR_ALPHA = 0.5f
 
 private val graustufen = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
