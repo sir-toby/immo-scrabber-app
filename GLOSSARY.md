@@ -54,7 +54,7 @@ _Avoid_: Papierkorb, Abgelehnt, Nö
 Filter für alle Inserate eines Immobilientyps, gleich welches Label sie tragen.
 
 **Nicht mehr verfügbar**:
-Ein Inserat, das der Scraper bei seiner Quelle seit einer Woche nicht mehr findet. Es verschwindet aus allen Filtern; nur ein Favorit bleibt, ausgegraut. Nach weiteren 90 Tagen wird es für alle gelöscht, auch als Favorit. Taucht es vorher wieder auf, ist es wieder normal sichtbar.
+Ein Inserat, das der Scraper bei seiner Quelle nicht mehr findet (in der ersten vollständigen Scraping-Runde ohne Treffer). Es verschwindet aus allen Filtern; nur ein Favorit bleibt, ausgegraut. Nach 90 Tagen wird es für alle gelöscht, auch als Favorit. Taucht es vorher wieder auf, ist es wieder normal sichtbar.
 _Avoid_: Veraltet, Stale, Abgelaufen
 
 **Überspringen**:
