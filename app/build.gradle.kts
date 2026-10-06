@@ -59,6 +59,17 @@ val releaseSigningEnv = listOf(
 ).associateWith { providers.environmentVariable(it).orNull?.takeIf(String::isNotBlank) }
 val missingReleaseSigningEnv = releaseSigningEnv.filterValues { it == null }.keys
 
+// Debug-Signierung in der CI, ebenfalls aus Secrets: Jeder Runner hätte sonst einen frischen
+// Debug-Key, und die APK eines PRs ließe sich nicht über die vorige installieren. Lokal (ohne die
+// Variablen) bleibt es beim Debug-Keystore von Android Studio.
+val debugSigningEnv = listOf(
+    "DEBUG_KEYSTORE_BASE64",
+    "DEBUG_KEYSTORE_PASSWORD",
+    "DEBUG_KEY_ALIAS",
+    "DEBUG_KEY_PASSWORD",
+).associateWith { providers.environmentVariable(it).orNull?.takeIf(String::isNotBlank) }
+val hasDebugSigningEnv = debugSigningEnv.values.all { it != null }
+
 android {
     namespace = "de.immoscrabber.app"
     compileSdk = 36
@@ -88,11 +99,25 @@ android {
                 keyPassword = releaseSigningEnv.getValue("RELEASE_KEY_PASSWORD")
             }
         }
+        if (hasDebugSigningEnv) {
+            create("ciDebug") {
+                val keystoreFile = layout.buildDirectory.file("signing/debug.keystore").get().asFile
+                keystoreFile.parentFile.mkdirs()
+                keystoreFile.writeBytes(
+                    Base64.getMimeDecoder().decode(debugSigningEnv.getValue("DEBUG_KEYSTORE_BASE64")),
+                )
+                storeFile = keystoreFile
+                storePassword = debugSigningEnv.getValue("DEBUG_KEYSTORE_PASSWORD")
+                keyAlias = debugSigningEnv.getValue("DEBUG_KEY_ALIAS")
+                keyPassword = debugSigningEnv.getValue("DEBUG_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            signingConfigs.findByName("ciDebug")?.let { signingConfig = it }
             // Nur zum Testen: Schwelle des Veraltet-Merkers verkürzen, z. B. -Pimmo.staleAfterSeconds=20.
             buildConfigField("long", "STALE_AFTER_SECONDS", "${staleAfterSeconds}L")
             buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
