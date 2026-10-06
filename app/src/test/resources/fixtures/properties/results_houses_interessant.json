@@ -21,6 +21,7 @@
       "provider": "VR Bank",
       "rooms": 4,
       "source": "Kleinanzeigen",
+      "stale": true,
       "title": "Einfamilienhaus mit Garten Nr. 40 – ruhige Lage, viel Platz für die Familie",
       "url": "https://example.com/haus/39"
     }

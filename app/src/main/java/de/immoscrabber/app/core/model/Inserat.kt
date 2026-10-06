@@ -34,6 +34,11 @@ data class Inserat(
     val constructionYear: Int?,
     /** Nur Häuser und Wohnungen. */
     val energyEfficiencyClass: String?,
+    /**
+     * Der Scraper findet das Inserat bei der Quelle nicht mehr. Der Server liefert so ein
+     * Inserat nur noch als Favorit; die App zeigt es ausgegraut.
+     */
+    val nichtMehrVerfuegbar: Boolean = false,
 )
 
 /** Position nach dem letzten Inserat einer Seite; der Server sortiert `created_at DESC, id DESC`. */

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Euro
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.LinkOff
 import androidx.compose.material.icons.outlined.MeetingRoom
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.Schedule
@@ -127,6 +128,9 @@ private fun Header(inserat: Inserat) {
                     Text(it, style = MaterialTheme.typography.bodyLarge)
                 }
             }
+        }
+        if (inserat.nichtMehrVerfuegbar) {
+            IconLine(Icons.Outlined.LinkOff, stringResource(R.string.nicht_mehr_verfuegbar_hinweis), iconDescription = null)
         }
         val address = formatAddress(inserat)
         if (address.isNotEmpty()) IconLine(Icons.Outlined.Place, address, iconDescription = null)
