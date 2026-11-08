@@ -22,7 +22,8 @@
       "rooms": 5,
       "source": "Kleinanzeigen",
       "title": "Einfamilienhaus mit Garten Nr. 1 – ruhige Lage, viel Platz für die Familie",
-      "url": "https://example.com/haus/0"
+      "url": "https://example.com/haus/0",
+      "alternate_urls": ["https://www.immowelt.de/expose/0"]
     },
     {
       "area_building": 112.0,

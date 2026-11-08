@@ -214,6 +214,16 @@ class PropertyListViewModelTest {
 
         assertEquals(listOf(ListEvent.OpenLink("https://example.com/haus/1"), ListEvent.NoLink), events)
     }
+
+    @Test
+    fun `Tipp auf einen weiteren Link öffnet diesen`() = runTest(dispatcher) {
+        val vm = favoritenViewModel()
+        val events = events(vm)
+
+        vm.openWeiterenLink(WeitererLink("https://www.immowelt.de/expose/1", "immowelt.de"))
+
+        assertEquals(listOf(ListEvent.OpenLink("https://www.immowelt.de/expose/1")), events)
+    }
 }
 
 data class PageRequest(val type: PropertyType, val label: Label?, val cursor: PageCursor?)

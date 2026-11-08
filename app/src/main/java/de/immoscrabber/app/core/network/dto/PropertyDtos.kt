@@ -43,6 +43,7 @@ internal data class PropertyDto(
     val energyEfficiencyClass: String? = null,
     @SerialName("property_type") val propertyType: String? = null,
     val stale: Boolean = false,
+    @SerialName("alternate_urls") val alternateUrls: List<String> = emptyList(),
 )
 
 @Serializable
@@ -86,4 +87,5 @@ internal fun PropertyDto.toInserat(id: String, requestedType: PropertyType) = In
     constructionYear = constructionYear,
     energyEfficiencyClass = energyEfficiencyClass,
     nichtMehrVerfuegbar = stale,
+    weitereUrls = alternateUrls,
 )
