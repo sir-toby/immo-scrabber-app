@@ -275,6 +275,11 @@ class PropertyListViewModel(
         _events.trySend(if (url == null) ListEvent.NoLink else ListEvent.OpenLink(url))
     }
 
+    /** Tipp auf einen weiteren Link im Sheet. */
+    fun openWeiterenLink(link: WeitererLink) {
+        _events.trySend(ListEvent.OpenLink(link.url))
+    }
+
     /** Pull-to-Refresh: verwirft den Cursor und lädt von oben. */
     fun refresh() = neuLaden()
 

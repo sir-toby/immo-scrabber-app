@@ -166,6 +166,30 @@ class InseratDetailsTest {
         assertNull(shareContent(inserat("1", url = "  ")))
     }
 
+    // --- Weitere Quellen ---
+
+    @Test
+    fun `weitere Links mit Domain als Name, Unbrauchbares fällt weg`() {
+        val links = weitereLinks(
+            inserat("1").copy(
+                weitereUrls = listOf(" https://www.immowelt.de/expose/1 ", "javascript:alert(1)", "kaputt", "http://kleinanzeigen.de/2"),
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                WeitererLink("https://www.immowelt.de/expose/1", "immowelt.de"),
+                WeitererLink("http://kleinanzeigen.de/2", "kleinanzeigen.de"),
+            ),
+            links,
+        )
+    }
+
+    @Test
+    fun `ohne weitere Links ist die Liste leer`() {
+        assertEquals(emptyList<WeitererLink>(), weitereLinks(inserat("1", url = "https://example.org/1")))
+    }
+
     // --- Umschalter ---
 
     @Test

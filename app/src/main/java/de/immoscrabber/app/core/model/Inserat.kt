@@ -39,6 +39,8 @@ data class Inserat(
      * Inserat nur noch als Favorit; die App zeigt es ausgegraut.
      */
     val nichtMehrVerfuegbar: Boolean = false,
+    /** Weitere Links zum selben Objekt bei anderen Quellen; [url] bleibt der Standardlink. */
+    val weitereUrls: List<String> = emptyList(),
 )
 
 /** Position nach dem letzten Inserat einer Seite; der Server sortiert `created_at DESC, id DESC`. */

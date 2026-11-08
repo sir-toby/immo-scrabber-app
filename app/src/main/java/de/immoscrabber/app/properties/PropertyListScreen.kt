@@ -230,6 +230,7 @@ fun PropertyListScreen(viewModel: PropertyListViewModel, onSuchprofilAnlegen: ()
                 }
             },
             onOpen = { viewModel.open(shownInSheet) },
+            onOpenWeitererLink = viewModel::openWeiterenLink,
             onDismiss = { sheetId = null },
         )
     }

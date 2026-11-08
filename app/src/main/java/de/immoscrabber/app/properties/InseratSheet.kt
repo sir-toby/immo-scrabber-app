@@ -77,7 +77,7 @@ import kotlinx.coroutines.launch
 /**
  * Detail-Sheet eines Inserats der Wischliste (#14, Variante B „Kompakt + Status“): Kopf mit Bild,
  * Preis, vollem Titel und Adresse; Eckdaten als Chips mit Symbol; Herkunft; Umschalter
- * Neu / Favorit / Archiv; „Inserat öffnen“ und „Teilen“ (nur mit Link).
+ * Neu / Favorit / Archiv; „Inserat öffnen“ und „Teilen“ (nur mit Link); weitere Quellen.
  *
  * Das Sheet liegt in einem eigenen Fenster über der Scaffold-Snackbar, deshalb zeigt es die
  * Snackbar der Bewertung (mit „Rückgängig“) selbst.
@@ -90,6 +90,7 @@ fun InseratSheet(
     snackbarHostState: SnackbarHostState,
     onBewerten: (Label) -> Unit,
     onOpen: () -> Unit,
+    onOpenWeitererLink: (WeitererLink) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val clock = remember { Clock.systemDefaultZone() }
@@ -106,6 +107,7 @@ fun InseratSheet(
                 Origin(inserat, clock)
                 Bewertung(inserat.label, onBewerten)
                 Actions(inserat, onOpen)
+                WeitereQuellen(weitereLinks(inserat), onOpenWeitererLink)
                 InseratId(inserat.id, snackbarHostState)
             }
             SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter))
@@ -271,6 +273,28 @@ private fun Actions(inserat: Inserat, onOpen: () -> Unit) {
         OutlinedButton(onClick = { context.share(share) }, modifier = Modifier.weight(1f)) {
             Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(18.dp))
             Text(stringResource(R.string.share), Modifier.padding(start = 8.dp))
+        }
+    }
+}
+
+/** „Auch bei“: dasselbe Objekt bei anderen Quellen, je ein Knopf mit der Domain. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WeitereQuellen(links: List<WeitererLink>, onOpen: (WeitererLink) -> Unit) {
+    if (links.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = stringResource(R.string.auch_bei),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            links.forEach { link ->
+                OutlinedButton(onClick = { onOpen(link) }) {
+                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(link.name, Modifier.padding(start = 8.dp))
+                }
+            }
         }
     }
 }

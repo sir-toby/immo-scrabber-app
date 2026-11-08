@@ -2,6 +2,7 @@ package de.immoscrabber.app.properties
 
 import de.immoscrabber.app.core.model.Inserat
 import de.immoscrabber.app.core.model.Label
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -54,6 +55,15 @@ private fun parseServerTimestamp(raw: String?): LocalDateTime? {
 
 /** Link zum Inserat oder `null`, wenn es keinen gibt („Kein Link zum Inserat“). */
 fun inseratLink(inserat: Inserat): String? = inserat.url?.trim()?.takeIf(String::isNotEmpty)
+
+/** Weiterer Link zum selben Objekt; [name] ist die Domain ohne „www.“. */
+data class WeitererLink(val url: String, val name: String)
+
+/** Die anderen Quellen des Inserats fürs Sheet; was kein http(s)-Link ist, fällt weg. */
+fun weitereLinks(inserat: Inserat): List<WeitererLink> = inserat.weitereUrls.mapNotNull { raw ->
+    val url = raw.trim()
+    url.toHttpUrlOrNull()?.let { WeitererLink(url, it.host.removePrefix("www.")) }
+}
 
 /** Inhalt für das Android-Teilen-Menü: der Link als Text, der Titel als Betreff. */
 data class ShareContent(val subject: String?, val text: String)

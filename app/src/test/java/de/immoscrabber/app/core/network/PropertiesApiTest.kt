@@ -54,6 +54,7 @@ class PropertiesApiTest {
                 label = Label.UNBEWERTET,
                 constructionYear = 1967,
                 energyEfficiencyClass = "A+",
+                weitereUrls = listOf("https://www.immowelt.de/expose/0"),
             ),
             first,
         )
