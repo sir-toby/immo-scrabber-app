@@ -186,6 +186,17 @@ class InseratDetailsTest {
     }
 
     @Test
+    fun `je Domain der neueste Link, ohne das Portal des Hauptlinks`() {
+        val links = weitereLinks(
+            inserat("1", url = "https://www.kleinanzeigen.de/1").copy(
+                weitereUrls = listOf("https://immowelt.de/alt", "https://kleinanzeigen.de/2", "https://www.immowelt.de/neu"),
+            ),
+        )
+
+        assertEquals(listOf(WeitererLink("https://www.immowelt.de/neu", "immowelt.de")), links)
+    }
+
+    @Test
     fun `ohne weitere Links ist die Liste leer`() {
         assertEquals(emptyList<WeitererLink>(), weitereLinks(inserat("1", url = "https://example.org/1")))
     }

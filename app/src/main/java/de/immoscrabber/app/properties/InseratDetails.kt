@@ -59,11 +59,21 @@ fun inseratLink(inserat: Inserat): String? = inserat.url?.trim()?.takeIf(String:
 /** Weiterer Link zum selben Objekt; [name] ist die Domain ohne „www.“. */
 data class WeitererLink(val url: String, val name: String)
 
-/** Die anderen Quellen des Inserats fürs Sheet; was kein http(s)-Link ist, fällt weg. */
-fun weitereLinks(inserat: Inserat): List<WeitererLink> = inserat.weitereUrls.mapNotNull { raw ->
-    val url = raw.trim()
-    url.toHttpUrlOrNull()?.let { WeitererLink(url, it.host.removePrefix("www.")) }
+/**
+ * Die anderen Quellen des Inserats fürs Sheet: je Domain der neueste Link, ohne das Portal des
+ * Hauptlinks. Was kein http(s)-Link ist, fällt weg.
+ */
+fun weitereLinks(inserat: Inserat): List<WeitererLink> {
+    val hauptDomain = inserat.url?.let(::domain)
+    return inserat.weitereUrls
+        .mapNotNull { raw -> domain(raw)?.let { WeitererLink(raw.trim(), it) } }
+        .filter { it.name != hauptDomain }
+        .associateBy(WeitererLink::name)
+        .values
+        .toList()
 }
+
+private fun domain(raw: String): String? = raw.trim().toHttpUrlOrNull()?.host?.removePrefix("www.")
 
 /** Inhalt für das Android-Teilen-Menü: der Link als Text, der Titel als Betreff. */
 data class ShareContent(val subject: String?, val text: String)
